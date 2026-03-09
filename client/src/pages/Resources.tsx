@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, DollarSign, Landmark, GraduationCap, Bot } from "lucide-react";
+import { Briefcase, DollarSign, Landmark, GraduationCap, Bot, Video, Mic, Home } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -42,12 +42,45 @@ export default function Resources() {
           buttonText: "Join Free",
           url: "https://insiders.itsjoshmoore.com/courses/offers/3f5a5bf0-ec56-4752-ba1f-db9a1a4ab985",
         },
+      ],
+    },
+
+    {
+      title: "AI Resources",
+      resources: [
         {
           icon: Bot,
           title: "Free Manus AI Invite & Credits",
           description: "Do and automate anything with this futuristic AI agent.",
           buttonText: "Get Free Access",
           url: "https://manus.im/invitation/BNVT5F5DQEDYM",
+        },
+        {
+          icon: Video,
+          title: "OpusClip AI Editor",
+          description: "Use AI to turn your long form video into a treasure trove of short form content.",
+          buttonText: "Try OpusClip",
+          url: "https://www.opus.pro/?via=26834d",
+        },
+        {
+          icon: Mic,
+          title: "ElevenLabs AI",
+          description: "Create custom voices or clone your own and have them say anything.",
+          buttonText: "Try ElevenLabs",
+          url: "https://try.elevenlabs.io/joshmooreinvests",
+        },
+      ],
+    },
+
+    {
+      title: "Housing Resources",
+      resources: [
+        {
+          icon: Home,
+          title: "Padsplit",
+          description: "Level up your cashflow through Co-Living with Padsplit.",
+          buttonText: "Get Started",
+          url: "https://www.padsplit.com/hosts?referral=041351CD&ref_source=link&ref_device=desktop&ref_role=af",
         },
       ],
     },
