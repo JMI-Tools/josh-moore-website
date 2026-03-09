@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, DollarSign, Landmark, GraduationCap } from "lucide-react";
+import { Briefcase, DollarSign, Landmark, GraduationCap, Bot } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -41,6 +41,13 @@ export default function Resources() {
           description: "Free training to teach aspiring West Michigan entrepreneurs how they can make thousands of dollars for free working to help me find houses to buy",
           buttonText: "Join Free",
           url: "https://insiders.itsjoshmoore.com/courses/offers/3f5a5bf0-ec56-4752-ba1f-db9a1a4ab985",
+        },
+        {
+          icon: Bot,
+          title: "Free Manus AI Invite & Credits",
+          description: "Do and automate anything with this futuristic AI agent.",
+          buttonText: "Get Free Access",
+          url: "https://manus.im/invitation/BNVT5F5DQEDYM",
         },
       ],
     },
