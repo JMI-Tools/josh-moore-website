@@ -61,7 +61,7 @@ const cards: BuyBoxCard[] = [
     ],
     dealKillers: ["On-site waste treatment plants", "Lagoon systems"],
     valueAddFocus: ["Rent growth", "Operational improvements"],
-    ctaText: "Have a mobile home park deal? Submit it here",
+    ctaText: "Have an MHP deal? Submit it here",
   },
   {
     title: "RV Park",
