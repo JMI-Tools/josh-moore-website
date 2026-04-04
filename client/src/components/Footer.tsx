@@ -39,11 +39,17 @@ export default function Footer() {
       <div className="container py-12">
         <div className="flex flex-col items-center space-y-6">
           {/* Logo */}
-          <img
-            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663274333910/BDvsG8QwM5MRn7rkKqLxFL/logo_f73ce9e0.png"
-            alt="Josh Moore"
-            className="h-20 w-auto"
-          />
+          <a
+            href="/"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            aria-label="Go to homepage"
+          >
+            <img
+              src="/logo-footer.png"
+              alt="Josh Moore"
+              className="h-24 w-auto hover:opacity-80 transition-opacity"
+            />
+          </a>
 
           {/* Social Media Icons */}
           <div className="flex items-center gap-5 flex-wrap justify-center">
