@@ -1,99 +1,89 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, MapPin, DollarSign, Home } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowRight, MapPin, DollarSign, Home, Building2, Caravan, Target, XCircle, TrendingUp } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-export default function BuyBox() {
-  const criteria = [
-    {
-      title: "Single Family Residential",
-      icon: Home,
-      gradient: "from-primary/20 to-blue-500/20",
-      requirements: [
-        "Minimum 2 bed, 1 bath",
-        "Light rehab to light repairs welcome",
-        "No fire damage",
-        "No foundation issues",
-      ],
-      markets: [
-        "Muskegon County",
-        "Kent County",
-        "Ottawa County",
-      ],
-      cities: [
-        "Muskegon",
-        "Grand Rapids",
-        "Spring Lake",
-        "Holland",
-        "Grand Haven",
-      ],
-      structure: [
-        "Cash",
-        "Creative finance with seller incentives",
-      ],
-    },
-    {
-      title: "Residential Multifamily (2-4 Units)",
-      icon: Home,
-      gradient: "from-blue-500/20 to-primary/20",
-      requirements: [
-        "2-4 units",
-        "Minimum 1 bed, 1 bath per unit",
-        "Any condition considered",
-        "No fire damage",
-      ],
-      markets: [
-        "Michigan (West Michigan preferred)",
-      ],
-      structure: [
-        "Cash",
-        "Creative finance",
-        "Seller carry terms",
-      ],
-    },
-    {
-      title: "Commercial Multifamily (5-20 Units)",
-      icon: Home,
-      gradient: "from-primary/20 to-blue-500/20",
-      requirements: [
-        "5-20 units",
-        "Heavy value-add opportunities with upside through:",
-        "  - Improved operations",
-        "  - Construction/repositioning",
-      ],
-      markets: [
-        "Open to various markets",
-      ],
-      structure: [
-        "Creative finance preferred",
-        "Cash considered",
-      ],
-    },
-    {
-      title: "RV Parks / Campgrounds / Mobile Home Parks",
-      icon: Home,
-      gradient: "from-blue-500/20 to-primary/20",
-      requirements: [
-        "Preferred NOI: $200K+",
-        "Mobile Home Park: Minimum 8% cap rate",
-        "RV Park/Campground: Minimum 10% cap rate",
-      ],
-      markets: [
-        "Reviewing parks nationally",
-      ],
-      structure: [
-        "Creative finance preferred",
-        "Open to cash",
-      ],
-    },
-  ];
+interface BuyBoxCard {
+  title: string;
+  icon: React.ElementType;
+  gradient: string;
+  investmentGoal: string;
+  criteria: { label: string; value: string }[];
+  dealKillers?: string[];
+  valueAddFocus: string[];
+  ctaText: string;
+}
 
+const cards: BuyBoxCard[] = [
+  {
+    title: "Single Family Residential",
+    icon: Home,
+    gradient: "from-primary/20 to-blue-500/20",
+    investmentGoal: "Fix & Flip",
+    criteria: [
+      { label: "Max Purchase Price", value: "$400,000" },
+      { label: "Offer Formula", value: "70% of ARV minus repairs" },
+      { label: "Condition", value: "All conditions accepted — no fire damage, no foundation damage" },
+      { label: "Minimum", value: "2 bed / 1 bath" },
+      { label: "Financing", value: "Cash or seller financing" },
+      { label: "Target Counties", value: "Muskegon, Kent, Ottawa, Kalamazoo, Genesee" },
+      { label: "Focus Cities", value: "Muskegon, Grand Rapids, Grand Haven, Spring Lake, Holland, Flint, Lapeer" },
+    ],
+    valueAddFocus: ["Renovations to maximize ARV", "Fast turnaround for resale"],
+    ctaText: "Have a house deal? Submit it here",
+  },
+  {
+    title: "Commercial Multifamily",
+    icon: Building2,
+    gradient: "from-blue-500/20 to-primary/20",
+    investmentGoal: "Value-Add Acquisitions",
+    criteria: [
+      { label: "Unit Count", value: "10–50 units" },
+      { label: "Markets", value: "Midwest primary; strong deals considered nationally" },
+      { label: "Financing", value: "Creative financing only" },
+    ],
+    dealKillers: ["Motel conversions", "Failed condo conversions"],
+    valueAddFocus: ["Rent growth via renovations", "Operational improvements to increase NOI"],
+    ctaText: "Have a multifamily deal? Submit it here",
+  },
+  {
+    title: "Mobile Home Park",
+    icon: Home,
+    gradient: "from-primary/20 to-blue-500/20",
+    investmentGoal: "Value-Add and Cash Flow",
+    criteria: [
+      { label: "Min Park Size", value: "30 pads" },
+      { label: "Home Type", value: "Tenant-owned preferred; park-owned considered" },
+      { label: "Markets", value: "Nationwide" },
+      { label: "Financing", value: "Creative financing and seller financing only" },
+    ],
+    dealKillers: ["On-site waste treatment plants", "Lagoon systems"],
+    valueAddFocus: ["Rent growth", "Operational improvements"],
+    ctaText: "Have a mobile home park deal? Submit it here",
+  },
+  {
+    title: "RV Park",
+    icon: Caravan,
+    gradient: "from-blue-500/20 to-primary/20",
+    investmentGoal: "Acquire Underperforming or Established Parks",
+    criteria: [
+      { label: "Park Types", value: "Transient (near tourism) and long-term (near population centers); mixed-use accepted" },
+      { label: "Min Park Size", value: "30 pads" },
+      { label: "Markets", value: "Nationwide — no flood zone properties" },
+      { label: "Financing", value: "Creative financing and seller financing only" },
+    ],
+    valueAddFocus: ["Operational improvements", "Enhanced amenities", "Rent growth"],
+    ctaText: "Have an RV park deal? Submit it here",
+  },
+];
+
+export default function BuyBox() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-white via-blue-50/30 to-white">
       <Header />
-      
+
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative overflow-hidden bg-gradient-to-br from-secondary via-secondary/95 to-primary/90 text-white py-20">
@@ -121,91 +111,103 @@ export default function BuyBox() {
           </div>
         </section>
 
-        {/* Criteria Cards */}
+        {/* Buy Box Cards */}
         <section className="py-20">
           <div className="container max-w-6xl space-y-12">
-            {criteria.map((item, idx) => {
-              const Icon = item.icon;
+            {cards.map((card, idx) => {
+              const Icon = card.icon;
               return (
-                <Card key={idx} className="overflow-hidden border-2 hover:border-primary/50 hover:shadow-2xl transition-all group">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-0 group-hover:opacity-100 transition-opacity`}></div>
-                  
+                <Card key={idx} className="overflow-hidden border-2 hover:border-primary/50 hover:shadow-2xl transition-all group relative">
+                  <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`}></div>
+
+                  {/* Card Header */}
                   <CardHeader className="bg-gradient-to-r from-secondary/10 to-primary/10 relative z-10">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-gradient-to-br from-primary to-blue-600 rounded-xl shadow-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <div className="p-3 bg-gradient-to-br from-primary to-blue-600 rounded-xl shadow-lg w-fit">
                         <Icon className="h-8 w-8 text-white" />
                       </div>
-                      <CardTitle className="text-3xl">{item.title}</CardTitle>
+                      <div>
+                        <CardTitle className="text-3xl">{card.title}</CardTitle>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Target className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-semibold text-primary uppercase tracking-wide">
+                            Investment Goal: {card.investmentGoal}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </CardHeader>
-                  
-                  <CardContent className="pt-8 pb-8 relative z-10">
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <Home className="h-5 w-5 text-primary" />
-                          </div>
-                          <h3 className="font-bold text-lg">Property Requirements</h3>
-                        </div>
-                        <ul className="space-y-3">
-                          {item.requirements.map((req, i) => (
-                            <li key={i} className="flex items-start gap-3 group/item">
-                              <span className="text-primary mt-1 text-xl group-hover/item:scale-125 transition-transform">•</span>
-                              <span className="text-muted-foreground">{req}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      
+
+                  <CardContent className="pt-8 pb-8 relative z-10 space-y-8">
+                    <div className="grid md:grid-cols-2 gap-8">
+
+                      {/* Key Criteria */}
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-4">
                           <div className="p-2 bg-primary/10 rounded-lg">
                             <MapPin className="h-5 w-5 text-primary" />
                           </div>
-                          <h3 className="font-bold text-lg">
-                            {item.cities ? "Target Markets" : "Markets"}
-                          </h3>
+                          <h3 className="font-bold text-lg">Key Criteria</h3>
                         </div>
-                        <ul className="space-y-3">
-                          {item.markets.map((market, i) => (
-                            <li key={i} className="flex items-start gap-3 group/item">
-                              <span className="text-primary mt-1 text-xl group-hover/item:scale-125 transition-transform">•</span>
-                              <span className="text-muted-foreground">{market}</span>
-                            </li>
+                        <dl className="space-y-3">
+                          {card.criteria.map((item, i) => (
+                            <div key={i} className="flex flex-col sm:flex-row sm:gap-2">
+                              <dt className="font-semibold text-foreground min-w-[160px] shrink-0">{item.label}:</dt>
+                              <dd className="text-muted-foreground">{item.value}</dd>
+                            </div>
                           ))}
-                        </ul>
-                        {item.cities && (
-                          <>
-                            <h4 className="font-bold text-base mt-6 mb-3">Focus Cities</h4>
-                            <ul className="space-y-3">
-                              {item.cities.map((city, i) => (
-                                <li key={i} className="flex items-start gap-3 group/item">
-                                  <span className="text-primary mt-1 text-xl group-hover/item:scale-125 transition-transform">•</span>
-                                  <span className="text-muted-foreground">{city}</span>
+                        </dl>
+                      </div>
+
+                      <div className="space-y-8">
+                        {/* Deal Killers */}
+                        {card.dealKillers && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 mb-4">
+                              <div className="p-2 bg-red-100 rounded-lg">
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              </div>
+                              <h3 className="font-bold text-lg text-red-600">Deal Killers</h3>
+                            </div>
+                            <ul className="space-y-2">
+                              {card.dealKillers.map((killer, i) => (
+                                <li key={i} className="flex items-start gap-3">
+                                  <span className="text-red-500 mt-1 text-xl">✕</span>
+                                  <span className="text-muted-foreground">{killer}</span>
                                 </li>
                               ))}
                             </ul>
-                          </>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <DollarSign className="h-5 w-5 text-primary" />
                           </div>
-                          <h3 className="font-bold text-lg">Deal Structure</h3>
+                        )}
+
+                        {/* Value-Add Focus */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                              <TrendingUp className="h-5 w-5 text-green-600" />
+                            </div>
+                            <h3 className="font-bold text-lg text-green-700">Value-Add Focus</h3>
+                          </div>
+                          <ul className="space-y-2">
+                            {card.valueAddFocus.map((item, i) => (
+                              <li key={i} className="flex items-start gap-3">
+                                <span className="text-green-600 mt-1 text-xl">✓</span>
+                                <span className="text-muted-foreground">{item}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        <ul className="space-y-3">
-                          {item.structure.map((str, i) => (
-                            <li key={i} className="flex items-start gap-3 group/item">
-                              <span className="text-primary mt-1 text-xl group-hover/item:scale-125 transition-transform">•</span>
-                              <span className="text-muted-foreground">{str}</span>
-                            </li>
-                          ))}
-                        </ul>
                       </div>
+                    </div>
+
+                    {/* CTA Button */}
+                    <div className="pt-4 border-t border-border">
+                      <Link href="/submit-deal">
+                        <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white text-base px-6 py-3 shadow-md hover:shadow-lg transition-all hover:scale-105">
+                          {card.ctaText}
+                          <ArrowRight className="ml-2 h-5 w-5" />
+                        </Button>
+                      </Link>
                     </div>
                   </CardContent>
                 </Card>
@@ -214,7 +216,7 @@ export default function BuyBox() {
           </div>
         </section>
 
-        {/* CTA */}
+        {/* Bottom CTA */}
         <section className="py-20 bg-gradient-to-br from-secondary via-primary to-secondary text-white relative overflow-hidden">
           <div className="absolute inset-0 opacity-20">
             <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
