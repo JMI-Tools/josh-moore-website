@@ -129,8 +129,8 @@ function SectionDivider() {
   return <hr className="border-gray-700/50 my-2" />;
 }
 
-function NavButtons({ onBack, onNext, backLabel = "← Back", nextLabel = "Next →", isSubmit = false }: {
-  onBack?: () => void; onNext: () => void; backLabel?: string; nextLabel?: string; isSubmit?: boolean;
+function NavButtons({ onBack, onNext, backLabel = "← Back", nextLabel = "Next →", isSubmit = false, disabled = false }: {
+  onBack?: () => void; onNext: () => void; backLabel?: string; nextLabel?: string; isSubmit?: boolean; disabled?: boolean;
 }) {
   return (
     <div className={`flex mt-8 ${onBack ? "justify-between" : "justify-end"}`}>
@@ -139,7 +139,7 @@ function NavButtons({ onBack, onNext, backLabel = "← Back", nextLabel = "Next 
           {backLabel}
         </button>
       )}
-      <button type="button" onClick={onNext} className={`px-8 py-2.5 rounded-lg font-semibold text-sm transition ${isSubmit ? "bg-green-600 hover:bg-green-500 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
+      <button type="button" onClick={onNext} disabled={disabled} className={`px-8 py-2.5 rounded-lg font-semibold text-sm transition ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${isSubmit ? "bg-green-600 hover:bg-green-500 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
         {nextLabel}
       </button>
     </div>
@@ -152,6 +152,8 @@ export default function SubmitDeal() {
   const [step, setStep] = useState<Step>(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   // Step 1 — Submitter info
   const [isOwner, setIsOwner] = useState<string>("");
@@ -346,10 +348,177 @@ export default function SubmitDeal() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!validateStep(3)) return;
-    setSubmitted(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setSubmitting(true);
+    setSubmitError("");
+
+    // Map asset code to API property type
+    const propertyTypeMap: Record<string, string> = {
+      sfh: "sfr",
+      mf: "multifamily",
+      mhp: "mhp",
+      rv: "rv_park",
+    };
+
+    const nameParts = name.trim().split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    const payload: Record<string, unknown> = {
+      propertyType: propertyTypeMap[asset] || asset,
+      submitterRole: isOwner === "yes" ? "owner" : (role || "wholesaler"),
+      isOwner: isOwner === "yes",
+      firstName,
+      lastName,
+      email,
+      phone,
+      preferredContact: contactPref,
+      additionalNotes: notes,
+      howHeard: hearAbout,
+      consent,
+    };
+
+    // Asset-class specific fields
+    if (asset === "sfh") {
+      Object.assign(payload, {
+        propertyAddress: sfhAddr,
+        askingPrice: sfhPrice,
+        arv: sfhArv,
+        bedrooms: sfhBeds,
+        bathrooms: sfhBaths,
+        squareFootage: sfhSqft,
+        yearBuilt: sfhYear,
+        condition: sfhCond,
+        estimatedRepairs: sfhRepairCost,
+        repairDescription: sfhRepairDesc,
+        occupancyStatus: sfhOcc,
+        currentRent: sfhRent,
+        hasLease: sfhLease,
+        leaseExpiry: sfhLeaseExp,
+        hasMortgage: sfhMort,
+        mortgageBalance: sfhMortBal,
+        mortgageRate: sfhMortRate,
+        mortgagePayment: sfhMortPmt,
+        creativeFinancing: sfhCf,
+        creativeFinancingOptions: sfhCfOptions,
+        motivation: sfhMotivation,
+        assignmentFee: referralFee,
+        dealStatus,
+      });
+    } else if (asset === "mf") {
+      const unitCount = parseInt(mfUnits) || 0;
+      Object.assign(payload, {
+        propertyAddress: mfAddr,
+        askingPrice: mfPrice,
+        unitCount: mfUnits,
+        assignmentFee: referralFee,
+        dealStatus,
+        ...(unitCount >= 2 && unitCount <= 4 ? {
+          occupancyStatus: mf24Occ,
+          grossRents: mf24Rents,
+          condition: mf24Cond,
+          hasMortgage: mf24Mort,
+          mortgageBalance: mf24MortBal,
+          mortgageRate: mf24MortRate,
+          assumable: mf24Assume,
+          creativeFinancing: mf24Cf,
+        } : unitCount >= 5 && unitCount <= 19 ? {
+          occupancyStatus: mf5Occ,
+          grossRents: mf5Rents,
+          currentNoi: mf5Noi,
+          hasMortgage: mf5Mort,
+          mortgageBalance: mf5MortBal,
+          mortgageRate: mf5MortRate,
+          assumable: mf5Assume,
+          yearBuilt: mf5Year,
+          condition: mf5Cond,
+          t12Available: mf5T12,
+        } : {
+          occupancyStatus: mf20Occ,
+          grossRents: mf20Rents,
+          hasMortgage: mf20Mort,
+          mortgageBalance: mf20MortBal,
+          mortgageRate: mf20MortRate,
+          assumable: mf20Assume,
+          currentNoi: mf20Noi,
+          capRate: mf20Cap,
+          t12Available: mf20T12,
+          squareFootage: mf20Sf,
+        }),
+      });
+    } else if (asset === "mhp") {
+      Object.assign(payload, {
+        propertyAddress: mhpAddr,
+        askingPrice: mhpPrice,
+        totalPads: mhpLots,
+        occupiedPads: mhpOcc,
+        waterSewerType: mhpWater,
+        hasParkOwnedHomes: mhpPoh,
+        parkOwnedHomes: mhpPohUnits,
+        parkOwnedCondition: mhpPohCond,
+        grossRents: mhpInc,
+        lotRent: mhpLotRent,
+        infrastructureIssues: mhpInfra,
+        hasMortgage: mhpMort,
+        mortgageBalance: mhpMortBal,
+        mortgageRate: mhpMortRate,
+        assumable: mhpAssume,
+        violations: mhpViol,
+        violationsDesc: mhpViolDesc,
+        environmentalIssues: mhpEnv,
+        environmentalDesc: mhpEnvDesc,
+        squareFootage: mhpSf,
+        assignmentFee: referralFee,
+        dealStatus,
+      });
+    } else if (asset === "rv") {
+      Object.assign(payload, {
+        propertyAddress: rvAddr,
+        askingPrice: rvPrice,
+        totalPads: rvSites,
+        seasonal: rvSeason,
+        seasonOpen: rvSeasonOpen,
+        seasonClose: rvSeasonClose,
+        peakOccupancy: rvPeakOcc,
+        yearRoundOccupancy: rvYrOcc,
+        longTermTenants: rvLt,
+        longTermCount: rvLtCount,
+        siteTypes: rvSiteTypes,
+        grossRents: rvRev,
+        managementType: rvMgmt,
+        bookingPlatform: rvBooking,
+        amenities: rvAmenities,
+        hasMortgage: rvMort,
+        mortgageBalance: rvMortBal,
+        mortgageRate: rvMortRate,
+        assumable: rvAssume,
+        squareFootage: rvSf,
+        assignmentFee: referralFee,
+        dealStatus,
+      });
+    }
+
+    try {
+      const res = await fetch("/api/submit-deal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error: ${res.status}`);
+      }
+
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setSubmitError(message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -1097,7 +1266,12 @@ export default function SubmitDeal() {
                   <FieldError msg={errors["consent"] || ""} show={!!errors["consent"]} />
                 </div>
 
-                <NavButtons onBack={() => goTo(2)} onNext={handleSubmit} nextLabel="Submit Deal →" isSubmit />
+                {submitError && (
+                  <div className="bg-red-900/40 border border-red-500 text-red-300 rounded-lg px-4 py-3 text-sm mb-4">
+                    {submitError}
+                  </div>
+                )}
+                <NavButtons onBack={() => goTo(2)} onNext={handleSubmit} nextLabel={submitting ? "Submitting…" : "Submit Deal →"} isSubmit disabled={submitting} />
               </>
             )}
 
