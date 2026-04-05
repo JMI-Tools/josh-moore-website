@@ -531,7 +531,7 @@ export default function Collaborate() {
       <div className="max-w-2xl mx-auto px-4 py-10">
         {/* Logo Card */}
         <div className="bg-[#0D1F3C] rounded-2xl p-6 mb-8 flex flex-col items-center border border-white/10">
-          <img src="/jm-logo.png" alt="Josh Moore" className="h-24 w-auto mb-2" />
+          <img src="/logo-jm.png" alt="Josh Moore" className="h-24 w-auto mb-2" />
         </div>
 
         {/* Progress */}
