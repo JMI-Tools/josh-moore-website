@@ -40,7 +40,7 @@ export default function About() {
             <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000"></div>
           </div>
 
-          <div className="container relative z-10 text-center space-y-6 max-w-4xl mx-auto">
+          <div className="container relative z-10 text-center space-y-6 max-w-4xl mx-auto px-6">
             <h1 className="text-5xl md:text-6xl font-bold">About Josh Moore</h1>
             <p className="text-xl md:text-2xl text-blue-100">
               Creative Real Estate Investor | Problem Solver | Deal Maker
@@ -57,7 +57,7 @@ export default function About() {
 
         {/* Story Section */}
         <section className="py-20">
-          <div className="container max-w-5xl">
+          <div className="container max-w-5xl px-6">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-blue-500/20 rounded-3xl blur-2xl"></div>
@@ -93,7 +93,7 @@ export default function About() {
 
         {/* Values Section */}
         <section className="py-20 bg-gradient-to-br from-secondary/5 via-primary/5 to-blue-50/50">
-          <div className="container space-y-12">
+          <div className="container space-y-12 px-6">
             <div className="text-center space-y-4 max-w-3xl mx-auto">
               <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
                 My Core Values
@@ -132,7 +132,7 @@ export default function About() {
 
         {/* Expertise Section */}
         <section className="py-20">
-          <div className="container max-w-5xl space-y-12">
+          <div className="container max-w-5xl space-y-12 px-6">
             <div className="text-center space-y-4">
               <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
                 Areas of Expertise
