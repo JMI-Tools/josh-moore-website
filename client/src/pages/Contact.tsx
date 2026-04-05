@@ -96,9 +96,6 @@ export default function Contact() {
               ))}
             </div>
 
-            <p className="text-gray-500 text-sm">
-              @joshmooreinvests across all platforms
-            </p>
           </div>
         </div>
       </main>
