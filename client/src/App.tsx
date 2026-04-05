@@ -11,6 +11,7 @@ import SubmitDeal from "./pages/SubmitDeal";
 import Resources from "./pages/Resources";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
+import Collaborate from "./pages/Collaborate";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/resources" component={Resources} />
       <Route path="/contact" component={Contact} />
       <Route path="/privacy" component={Privacy} />
+      <Route path="/collaborate" component={Collaborate} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

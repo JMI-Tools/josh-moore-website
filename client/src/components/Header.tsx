@@ -15,6 +15,7 @@ export default function Header() {
     { href: "/submit-deal", label: "Submit a Deal" },
     { href: "/resources", label: "Resources" },
     { href: "/contact", label: "Contact" },
+    { href: "/collaborate", label: "Collaborate" },
   ];
 
   const isActive = (href: string) => {
