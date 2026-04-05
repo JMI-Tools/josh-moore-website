@@ -62,7 +62,7 @@ export default function About() {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-blue-500/20 rounded-3xl blur-2xl"></div>
                 <img 
-                  src="https://d2xsxph8kpxj0f.cloudfront.net/310519663274333910/BDvsG8QwM5MRn7rkKqLxFL/josh_photo_5f8c9e1a.jpg" 
+                  src="/josh-photo.png" 
                   alt="Josh Moore" 
                   className="relative z-10 w-full h-auto rounded-2xl shadow-2xl border-4 border-white"
                 />
