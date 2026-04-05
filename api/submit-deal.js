@@ -38,6 +38,29 @@ const SUPABASE_TABLES = {
   rv_park: "rv_park_deals",
 };
 
+function buildDealTags(data) {
+  const tags = ["deal-submission", "website-submission"];
+
+  // Asset class tag
+  const assetTagMap = {
+    sfr: "asset-class-sfr",
+    multifamily: "asset-class-multifamily",
+    mhp: "asset-class-mhp",
+    rv_park: "asset-class-rv-park",
+  };
+  if (assetTagMap[data.propertyType]) tags.push(assetTagMap[data.propertyType]);
+
+  // Submitter role / source tag
+  if (data.submitterRole === "owner") tags.push("deal-source-owner");
+  if (data.submitterRole === "wholesaler") {
+    tags.push("deal-source-wholesaler");
+    tags.push("wholesaler");
+  }
+  if (data.submitterRole === "agent") tags.push("commercial-broker");
+
+  return tags;
+}
+
 async function createOrUpdateGHLContact(data) {
   const contactPayload = {
     locationId: GHL_LOCATION_ID,
@@ -46,7 +69,7 @@ async function createOrUpdateGHLContact(data) {
     email: data.email || "",
     phone: data.phone || "",
     source: "Website Deal Submission",
-    tags: [`deal-submission`, `asset-class-${data.propertyType}`],
+    tags: buildDealTags(data),
     customFields: [
       { key: "preferred_contact_method", field_value: data.preferredContact || "" },
       { key: "submitter_role", field_value: data.submitterRole || "" },

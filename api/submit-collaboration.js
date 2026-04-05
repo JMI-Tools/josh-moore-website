@@ -1,6 +1,30 @@
 // Collaboration Form Submission Handler
 // Routes to GHL pipelines + Supabase collaborations table
 
+function buildCollabTags(data) {
+  const tags = ['website-submission'];
+
+  // Map category to its specific GHL tag
+  const categoryTagMap = {
+    bird_dog: 'bird-dog',
+    wholesaler: 'wholesaler',
+    private_money_lender: 'private-money-lender',
+    capital_raiser: 'capital-raiser',
+    capital_partner: 'capital-partner',
+    hard_money_lender: 'hard-money-lender',
+    dscr_lender: 'dscr-lender',
+    commercial_lender: 'commercial-lender',
+    mortgage_broker: 'mortgage-broker',
+    commercial_broker: 'commercial-broker',
+    industry_partner: 'industry-partner',
+  };
+
+  const categoryTag = categoryTagMap[data.category];
+  if (categoryTag) tags.push(categoryTag);
+
+  return tags;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -239,7 +263,7 @@ export default async function handler(req, res) {
         email: data.email || '',
         phone: data.phone || '',
         source: 'Website Collaboration Form',
-        tags: [label, 'Collaboration Form'],
+        tags: buildCollabTags(data),
       }),
     });
     const contactData = await contactRes.json();
