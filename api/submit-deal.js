@@ -80,120 +80,147 @@ async function createGHLOpportunity(contactId, data, pipeline) {
 
   const opportunityName = `${data.firstName} ${data.lastName} - ${address}`;
 
-  // Build notes with all deal details
+  // Build a clean, readable note with all deal details
+  const assetLabels = { sfr: "Single Family Residential", multifamily: "Multifamily", mhp: "Mobile Home Park", rv_park: "RV Park" };
+  const roleLabels = { owner: "Property Owner", wholesaler: "Wholesaler", agent: "Real Estate Agent", other: "Other" };
+  const submitted = new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" });
+
+  const line = (label, value) => value ? `${label}: ${value}` : null;
+  const section = (title, lines) => [`\n[ ${title} ]`, ...lines.filter(Boolean)].join("\n");
+
   const noteLines = [
-    `=== DEAL SUBMISSION ===`,
-    `Submitted: ${new Date().toLocaleString("en-US", { timeZone: "America/New_York" })} ET`,
-    `Asset Class: ${data.propertyType?.toUpperCase()}`,
-    `Submitter Role: ${data.submitterRole}`,
-    ``,
-    `--- CONTACT INFO ---`,
-    `Name: ${data.firstName} ${data.lastName}`,
-    `Email: ${data.email}`,
-    `Phone: ${data.phone}`,
-    `Preferred Contact: ${data.preferredContact}`,
-    ``,
-    `--- PROPERTY INFO ---`,
-    `Address: ${data.propertyAddress || "N/A"}`,
-    `City: ${data.city || "N/A"}`,
-    `State: ${data.state || "N/A"}`,
-    `ZIP: ${data.zip || "N/A"}`,
-    `County: ${data.county || "N/A"}`,
+    `DEAL SUBMISSION — ${(assetLabels[data.propertyType] || data.propertyType).toUpperCase()}`,
+    `Submitted: ${submitted} ET`,
+    section("SUBMITTED BY",
+      [
+        line("Role", roleLabels[data.submitterRole] || data.submitterRole),
+        line("Name", `${data.firstName} ${data.lastName}`),
+        line("Email", data.email),
+        line("Phone", data.phone),
+        line("Preferred Contact", data.preferredContact),
+        data.wholesalerCompany ? line("Company", data.wholesalerCompany) : null,
+      ]
+    ),
+    section("PROPERTY LOCATION",
+      [
+        line("Address", data.propertyAddress),
+        line("City", data.city),
+        line("State", data.state),
+        line("ZIP", data.zip),
+        line("County", data.county),
+      ]
+    ),
   ];
 
-  // Add asset-class-specific fields
+  // Asset-class-specific details section
   if (data.propertyType === "sfr") {
-    noteLines.push(
-      ``,
-      `--- SFR DETAILS ---`,
-      `Bedrooms: ${data.bedrooms || "N/A"}`,
-      `Bathrooms: ${data.bathrooms || "N/A"}`,
-      `Sq Ft: ${data.squareFootage || "N/A"}`,
-      `Year Built: ${data.yearBuilt || "N/A"}`,
-      `Asking Price: $${data.askingPrice || "N/A"}`,
-      `ARV: $${data.arv || "N/A"}`,
-      `Est. Repairs: $${data.estimatedRepairs || "N/A"}`,
-      `Condition: ${data.condition || "N/A"}`,
-      `Occupancy: ${data.occupancyStatus || "N/A"}`,
-      `Utilities On: ${data.utilitiesOn || "N/A"}`,
-      `HOA: ${data.hasHoa ? `Yes - $${data.hoaAmount}/mo` : "No"}`,
-      `Liens/Judgments: ${data.liensOrJudgments || "None"}`,
-      `Motivation: ${data.motivation || "N/A"}`,
-      `Financing Terms: ${data.financingTerms || "N/A"}`
-    );
+    noteLines.push(section("PROPERTY DETAILS",
+      [
+        line("Bedrooms", data.bedrooms),
+        line("Bathrooms", data.bathrooms),
+        line("Square Footage", data.squareFootage ? `${data.squareFootage} sq ft` : null),
+        line("Year Built", data.yearBuilt),
+        line("Condition", data.condition),
+        line("Occupancy", data.occupancyStatus),
+        line("Utilities On", data.utilitiesOn ? "Yes" : "No"),
+        line("HOA", data.hasHoa ? `Yes — $${data.hoaAmount || "?"}/mo` : "No"),
+        line("Liens / Judgments", data.liensOrJudgments || "None"),
+        line("Seller Motivation", data.motivation),
+      ]
+    ));
+    noteLines.push(section("FINANCIALS",
+      [
+        line("Asking Price", data.askingPrice ? `$${Number(data.askingPrice).toLocaleString()}` : null),
+        line("ARV", data.arv ? `$${Number(data.arv).toLocaleString()}` : null),
+        line("Est. Repairs", data.estimatedRepairs ? `$${Number(data.estimatedRepairs).toLocaleString()}` : null),
+        line("Financing Terms", data.financingTerms),
+      ]
+    ));
   } else if (data.propertyType === "multifamily") {
-    noteLines.push(
-      ``,
-      `--- MULTIFAMILY DETAILS ---`,
-      `Units: ${data.unitCount || "N/A"}`,
-      `Unit Mix: ${data.unitMix || "N/A"}`,
-      `Sq Ft: ${data.squareFootage || "N/A"}`,
-      `Year Built: ${data.yearBuilt || "N/A"}`,
-      `Asking Price: $${data.askingPrice || "N/A"}`,
-      `Gross Rents: $${data.grossRents || "N/A"}/mo`,
-      `Current NOI: $${data.currentNoi || "N/A"}/yr`,
-      `Vacancy Rate: ${data.vacancyRate || "N/A"}%`,
-      `Occupancy: ${data.occupancyStatus || "N/A"}`,
-      `Condition: ${data.condition || "N/A"}`,
-      `Value-Add Opportunities: ${data.valueAddOpportunities || "N/A"}`,
-      `Financing Terms: ${data.financingTerms || "N/A"}`
-    );
+    noteLines.push(section("PROPERTY DETAILS",
+      [
+        line("Total Units", data.unitCount),
+        line("Unit Mix", data.unitMix),
+        line("Square Footage", data.squareFootage ? `${data.squareFootage} sq ft` : null),
+        line("Year Built", data.yearBuilt),
+        line("Condition", data.condition),
+        line("Occupancy Status", data.occupancyStatus),
+        line("Vacancy Rate", data.vacancyRate ? `${data.vacancyRate}%` : null),
+        line("Value-Add Opportunities", data.valueAddOpportunities),
+      ]
+    ));
+    noteLines.push(section("FINANCIALS",
+      [
+        line("Asking Price", data.askingPrice ? `$${Number(data.askingPrice).toLocaleString()}` : null),
+        line("Gross Rents", data.grossRents ? `$${Number(data.grossRents).toLocaleString()}/mo` : null),
+        line("Current NOI", data.currentNoi ? `$${Number(data.currentNoi).toLocaleString()}/yr` : null),
+        line("Financing Terms", data.financingTerms),
+      ]
+    ));
   } else if (data.propertyType === "mhp") {
-    noteLines.push(
-      ``,
-      `--- MHP DETAILS ---`,
-      `Total Pads: ${data.totalPads || "N/A"}`,
-      `Occupied Pads: ${data.occupiedPads || "N/A"}`,
-      `Park-Owned Homes: ${data.parkOwnedHomes || "N/A"}`,
-      `Tenant-Owned Homes: ${data.tenantOwnedHomes || "N/A"}`,
-      `Water/Sewer: ${data.waterSewerType || "N/A"}`,
-      `Utilities Billed Back: ${data.utilitiesBilledBack || "N/A"}`,
-      `Asking Price: $${data.askingPrice || "N/A"}`,
-      `Gross Rents: $${data.grossRents || "N/A"}/mo`,
-      `Current NOI: $${data.currentNoi || "N/A"}/yr`,
-      `Lot Rent: $${data.lotRent || "N/A"}/mo`,
-      `Year Established: ${data.yearEstablished || "N/A"}`,
-      `Condition: ${data.condition || "N/A"}`,
-      `Value-Add Opportunities: ${data.valueAddOpportunities || "N/A"}`,
-      `Financing Terms: ${data.financingTerms || "N/A"}`
-    );
+    noteLines.push(section("PROPERTY DETAILS",
+      [
+        line("Total Pads", data.totalPads),
+        line("Occupied Pads", data.occupiedPads),
+        line("Park-Owned Homes", data.parkOwnedHomes),
+        line("Tenant-Owned Homes", data.tenantOwnedHomes),
+        line("Water / Sewer", data.waterSewerType),
+        line("Utilities Billed Back", data.utilitiesBilledBack ? "Yes" : "No"),
+        line("Year Established", data.yearEstablished),
+        line("Condition", data.condition),
+        line("Value-Add Opportunities", data.valueAddOpportunities),
+      ]
+    ));
+    noteLines.push(section("FINANCIALS",
+      [
+        line("Asking Price", data.askingPrice ? `$${Number(data.askingPrice).toLocaleString()}` : null),
+        line("Lot Rent", data.lotRent ? `$${Number(data.lotRent).toLocaleString()}/mo` : null),
+        line("Gross Rents", data.grossRents ? `$${Number(data.grossRents).toLocaleString()}/mo` : null),
+        line("Current NOI", data.currentNoi ? `$${Number(data.currentNoi).toLocaleString()}/yr` : null),
+        line("Financing Terms", data.financingTerms),
+      ]
+    ));
   } else if (data.propertyType === "rv_park") {
-    noteLines.push(
-      ``,
-      `--- RV PARK DETAILS ---`,
-      `Total Pads: ${data.totalPads || "N/A"}`,
-      `Occupied Pads: ${data.occupiedPads || "N/A"}`,
-      `Hookup Types: ${data.hookupTypes || "N/A"}`,
-      `Amenities: ${data.amenities || "N/A"}`,
-      `Asking Price: $${data.askingPrice || "N/A"}`,
-      `Gross Rents: $${data.grossRents || "N/A"}/mo`,
-      `Current NOI: $${data.currentNoi || "N/A"}/yr`,
-      `Nightly Rate: $${data.nightlyRate || "N/A"}`,
-      `Monthly Rate: $${data.monthlyRate || "N/A"}`,
-      `Year Established: ${data.yearEstablished || "N/A"}`,
-      `Condition: ${data.condition || "N/A"}`,
-      `Value-Add Opportunities: ${data.valueAddOpportunities || "N/A"}`,
-      `Financing Terms: ${data.financingTerms || "N/A"}`
-    );
+    noteLines.push(section("PROPERTY DETAILS",
+      [
+        line("Total Pads", data.totalPads),
+        line("Occupied Pads", data.occupiedPads),
+        line("Hookup Types", data.hookupTypes),
+        line("Amenities", data.amenities),
+        line("Year Established", data.yearEstablished),
+        line("Condition", data.condition),
+        line("Value-Add Opportunities", data.valueAddOpportunities),
+      ]
+    ));
+    noteLines.push(section("FINANCIALS",
+      [
+        line("Asking Price", data.askingPrice ? `$${Number(data.askingPrice).toLocaleString()}` : null),
+        line("Nightly Rate", data.nightlyRate ? `$${Number(data.nightlyRate).toLocaleString()}` : null),
+        line("Monthly Rate", data.monthlyRate ? `$${Number(data.monthlyRate).toLocaleString()}` : null),
+        line("Gross Rents", data.grossRents ? `$${Number(data.grossRents).toLocaleString()}/mo` : null),
+        line("Current NOI", data.currentNoi ? `$${Number(data.currentNoi).toLocaleString()}/yr` : null),
+        line("Financing Terms", data.financingTerms),
+      ]
+    ));
   }
 
-  // Wholesaler fields
+  // Wholesaler/agent deal terms
   if (data.submitterRole === "wholesaler" || data.submitterRole === "agent") {
-    noteLines.push(
-      ``,
-      `--- WHOLESALER/AGENT INFO ---`,
-      `Company: ${data.wholesalerCompany || "N/A"}`,
-      `Assignment Fee: $${data.assignmentFee || "N/A"}`
-    );
+    noteLines.push(section("DEAL TERMS",
+      [
+        line("Assignment Fee", data.assignmentFee ? `$${Number(data.assignmentFee).toLocaleString()}` : null),
+      ]
+    ));
   }
 
-  noteLines.push(
-    ``,
-    `--- ADDITIONAL ---`,
-    `Notes: ${data.additionalNotes || "None"}`,
-    `How Heard: ${data.howHeard || "N/A"}`,
-    `Consent: ${data.consent ? "Yes" : "No"}`
-  );
+  // Additional info
+  noteLines.push(section("ADDITIONAL INFO",
+    [
+      line("Notes", data.additionalNotes || "None provided"),
+      line("How They Heard About Josh", data.howHeard),
+      line("Consent Given", data.consent ? "Yes" : "No"),
+    ]
+  ));
 
   const opportunityPayload = {
     pipelineId: pipeline.pipelineId,
