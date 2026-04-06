@@ -246,6 +246,9 @@ export default async function handler(req, res) {
 
   const results = { ghl: null, supabase: null, errors: [] };
 
+  // Build note text once — used for both the custom field (overwrites on every submission) and the contact note
+  const noteText = buildNote(data);
+
   // 1. Create/update GHL contact
   let contactId = null;
   try {
@@ -264,6 +267,9 @@ export default async function handler(req, res) {
         phone: data.phone || '',
         source: 'Website Collaboration Form',
         tags: buildCollabTags(data),
+        customFields: [
+          { key: 'opportunity_notes', field_value: noteText },
+        ],
       }),
     });
     const contactData = await contactRes.json();
@@ -301,10 +307,9 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Add formatted note to GHL opportunity
+  // 3. Add formatted note to GHL contact
   if (opportunityId) {
     try {
-      const noteText = buildNote(data);
       await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}/notes`, {
         method: 'POST',
         headers: {

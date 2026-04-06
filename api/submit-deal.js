@@ -61,7 +61,7 @@ function buildDealTags(data) {
   return tags;
 }
 
-async function createOrUpdateGHLContact(data) {
+async function createOrUpdateGHLContact(data, opportunityNoteText) {
   const contactPayload = {
     locationId: GHL_LOCATION_ID,
     firstName: data.firstName || "",
@@ -73,6 +73,7 @@ async function createOrUpdateGHLContact(data) {
     customFields: [
       { key: "preferred_contact_method", field_value: data.preferredContact || "" },
       { key: "submitter_role", field_value: data.submitterRole || "" },
+      { key: "opportunity_notes", field_value: opportunityNoteText || "" },
     ],
   };
 
@@ -95,15 +96,7 @@ async function createOrUpdateGHLContact(data) {
   return result.contact?.id || result.id;
 }
 
-async function createGHLOpportunity(contactId, data, pipeline) {
-  // Build a deal summary for the opportunity name
-  const address = data.propertyAddress
-    ? `${data.propertyAddress}, ${data.city || ""} ${data.state || ""}`
-    : "Address not provided";
-
-  const opportunityName = `${data.firstName} ${data.lastName} - ${address}`;
-
-  // Build a clean, readable note with all deal details
+function buildDealNoteText(data) {
   const assetLabels = { sfr: "Single Family Residential", multifamily: "Multifamily", mhp: "Mobile Home Park", rv_park: "RV Park" };
   const roleLabels = { owner: "Property Owner", wholesaler: "Wholesaler", agent: "Real Estate Agent", other: "Other" };
   const submitted = new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" });
@@ -245,6 +238,16 @@ async function createGHLOpportunity(contactId, data, pipeline) {
     ]
   ));
 
+  return noteLines.join("\n");
+}
+
+async function createGHLOpportunity(contactId, data, pipeline, noteText) {
+  const address = data.propertyAddress
+    ? `${data.propertyAddress}, ${data.city || ""} ${data.state || ""}`
+    : "Address not provided";
+
+  const opportunityName = `${data.firstName} ${data.lastName} - ${address}`;
+
   const opportunityPayload = {
     pipelineId: pipeline.pipelineId,
     pipelineStageId: pipeline.stageId,
@@ -282,7 +285,7 @@ async function createGHLOpportunity(contactId, data, pipeline) {
         "Content-Type": "application/json",
         Version: "2021-07-28",
       },
-      body: JSON.stringify({ body: noteLines.join("\n") }),
+      body: JSON.stringify({ body: noteText }),
     });
   }
 
@@ -425,8 +428,10 @@ export default async function handler(req, res) {
 
     // 1. Create/update GHL contact and opportunity
     try {
-      const contactId = await createOrUpdateGHLContact(data);
-      const opportunityId = await createGHLOpportunity(contactId, data, pipeline);
+      // Build the note text once so it can be written to both the custom field AND the opportunity note
+      const noteText = buildDealNoteText(data);
+      const contactId = await createOrUpdateGHLContact(data, noteText);
+      const opportunityId = await createGHLOpportunity(contactId, data, pipeline, noteText);
       results.ghl = { contactId, opportunityId, pipeline: pipeline.name };
     } catch (err) {
       console.error("GHL error:", err.message);
