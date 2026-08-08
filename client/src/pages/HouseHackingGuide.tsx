@@ -166,6 +166,51 @@ export default function HouseHackingGuide() {
         </div>
       </section>
 
+      {/* Starter Kit Download */}
+      <section className="py-16 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="relative rounded-2xl overflow-hidden border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-blue-900/10 p-8 md:p-12">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+            <div className="relative grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <p className="text-primary text-xs font-semibold uppercase tracking-widest mb-2">
+                  Free Companion Resource
+                </p>
+                <h2 className="text-2xl md:text-3xl font-bold mb-3">
+                  House Hacking Starter Kit
+                </h2>
+                <p className="text-muted-foreground mb-2">
+                  Four tools. One clearer buy box.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1 mb-6">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Lender questions</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> 90-day plan</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Property scorecard</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Deal analyzer</li>
+                </ul>
+                <a href="/house-hacking-starter-kit.pdf" download="Josh-Moore-House-Hacking-Starter-Kit.pdf">
+                  <Button size="lg" className="gap-2">
+                    <Download className="h-5 w-5" />
+                    Download Starter Kit — Free
+                  </Button>
+                </a>
+              </div>
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div className="absolute -inset-4 bg-primary/20 rounded-2xl blur-2xl" />
+                  <div className="relative bg-[#0d2d3a] rounded-xl overflow-hidden shadow-2xl max-w-xs p-8 text-white">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-blue-300 mb-4">Free Companion Resource</p>
+                    <h3 className="text-2xl font-bold leading-tight mb-3">House Hacking<br />Starter Kit</h3>
+                    <p className="text-blue-200 text-sm mb-4">Four tools. One clearer buy box.</p>
+                    <p className="text-xs text-primary font-semibold uppercase tracking-widest">By Josh Moore</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Inline PDF Viewer */}
       <section id="read-online" className="py-16 px-4 bg-card/30">
         <div className="max-w-5xl mx-auto">
