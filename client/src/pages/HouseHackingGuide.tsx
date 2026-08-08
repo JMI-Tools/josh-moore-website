@@ -1,7 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Download, BookOpen, Home, DollarSign, CheckCircle2 } from "lucide-react";
+import { Download, BookOpen, CheckCircle2 } from "lucide-react";
 
 export default function HouseHackingGuide() {
   const chapters = [
@@ -193,30 +193,6 @@ export default function HouseHackingGuide() {
             </a>
             .
           </p>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-16 px-4">
-        <div className="max-w-2xl mx-auto text-center">
-          <Home className="h-10 w-10 text-primary mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-3">Ready to find your house hack?</h2>
-          <p className="text-muted-foreground mb-8">
-            Submit a deal or connect with Josh directly to explore what's possible in your market.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="/submit-deal">
-              <Button size="lg" className="w-full sm:w-auto gap-2">
-                <DollarSign className="h-5 w-5" />
-                Submit a Deal
-              </Button>
-            </a>
-            <a href="/collaborate">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                Work With Josh
-              </Button>
-            </a>
-          </div>
         </div>
       </section>
 
