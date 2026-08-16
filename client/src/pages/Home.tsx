@@ -5,15 +5,10 @@ import { Building2, Home as HomeIcon, Building, Tent, Factory, ArrowRight, Check
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { trpc } from "@/lib/trpc";
-import { useSeo } from "@/hooks/useSeo";
+import { useRouteSeo } from "@/hooks/useSeo";
 
 export default function Home() {
-  useSeo({
-    title: "Josh Moore | Creative Finance Real Estate Investor in Michigan",
-    description:
-      "Josh Moore uses creative financing to buy single family, multifamily, commercial, RV park and mobile home park deals in Michigan and beyond.",
-    path: "/",
-  });
+  useRouteSeo("/");
 
   const { data: settings } = trpc.admin.getSettings.useQuery();
   const showEvents = settings?.events_section_visible === "true";

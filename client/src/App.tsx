@@ -1,6 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
+import { SITE_ROUTES, type RoutePath } from "@shared/seo-routes";
+import type { ComponentType } from "react";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -15,29 +17,40 @@ import Collaborate from "./pages/Collaborate";
 import HouseHackingGuide from "./pages/HouseHackingGuide";
 
 /**
- * IMPORTANT — these routes are duplicated in `vercel.json`.
+ * The route LIST lives in shared/seo-routes.ts â€” it is the single source of truth for
+ * routing, per-route <head> metadata, the prerendered HTML files and sitemap.xml.
  *
- * Production serves this SPA as static files. Only paths listed in the
- * `rewrites` alternation in vercel.json are rewritten to /index.html; every
- * other path returns a real HTTP 404 (deliberate — a blanket catch-all is what
- * caused the soft-404 problem). Adding a <Route> here WITHOUT adding the same
- * path to vercel.json will work in local dev and hard-404 in production.
+ * This map only binds each path to its component. Because it is typed
+ * `Record<RoutePath, ...>`, TypeScript fails the build if a route is added to
+ * SITE_ROUTES without a page here, or a page is added here without a SITE_ROUTES
+ * entry â€” the "forgot to update the other file" hard-404 cannot happen.
  *
- * New public routes must also be added to client/public/sitemap.xml.
- * "/404" is intentionally excluded from both.
+ * "/404" is deliberately NOT in the table: it must not be prerendered, indexed or
+ * listed in the sitemap, so it is wired up by hand below.
  */
+const PAGES: Record<RoutePath, ComponentType> = {
+  "/": Home,
+  "/about": About,
+  "/buy-box": BuyBox,
+  "/submit-deal": SubmitDeal,
+  "/resources": Resources,
+  "/contact": Contact,
+  "/privacy": Privacy,
+  "/collaborate": Collaborate,
+  "/househackingguide": HouseHackingGuide,
+};
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/about" component={About} />
-      <Route path="/buy-box" component={BuyBox} />
-      <Route path="/submit-deal" component={SubmitDeal} />
-      <Route path="/resources" component={Resources} />
-      <Route path="/contact" component={Contact} />
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/collaborate" component={Collaborate} />
-      <Route path="/househackingguide" component={HouseHackingGuide} />
+      {SITE_ROUTES.map((route) => {
+        const Page = PAGES[route.path];
+        return (
+          <Route key={route.path} path={route.path}>
+            <Page />
+          </Route>
+        );
+      })}
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

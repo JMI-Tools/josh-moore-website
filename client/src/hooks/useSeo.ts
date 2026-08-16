@@ -1,21 +1,14 @@
 import { useEffect } from "react";
+import {
+  canonicalUrl,
+  getRoute,
+  OG_IMAGE_URL,
+  SITE_ORIGIN,
+  type RoutePath,
+} from "@shared/seo-routes";
 
-/**
- * Canonical origin for the site. Every canonical/og:url is built from this.
- * The apex (itsjoshmoore.com) 308-redirects to www at the domain level, so www
- * is the only host that should ever appear in a canonical tag.
- */
-export const SITE_ORIGIN = "https://www.itsjoshmoore.com";
-
-/**
- * Build the canonical URL for a route path.
- * Root keeps its slash ("/"); every other path is emitted without a trailing slash.
- */
-export function canonicalUrl(path: string): string {
-  const withSlash = path.startsWith("/") ? path : `/${path}`;
-  if (withSlash === "/") return `${SITE_ORIGIN}/`;
-  return `${SITE_ORIGIN}${withSlash.replace(/\/+$/, "")}`;
-}
+export { canonicalUrl, SITE_ORIGIN };
+export type { RoutePath };
 
 export interface SeoOptions {
   /** Full <title> for this route. */
@@ -55,14 +48,17 @@ function removeTags(selector: string): void {
 }
 
 /**
- * Dependency-free per-route SEO for this client-rendered wouter SPA.
+ * Per-route SEO for CLIENT-SIDE NAVIGATION only.
  *
- * Sets document.title, the description meta, og:title / og:description / og:url,
- * and injects/updates a single <link rel="canonical">. Because the whole site is
- * served from one static index.html, without this every route would look like a
- * duplicate of "/" to search engines.
+ * The tags that matter for crawlers and link unfurlers are baked into the served
+ * HTML at build time by scripts/prerender-seo.ts — every route is its own real file
+ * with its own title/description/canonical/og:url, so nothing here is load-bearing
+ * for a consumer that does not run JavaScript. This hook exists so that a wouter
+ * in-app navigation (which never re-fetches HTML) still updates the document head.
  *
- * Call it once at the top of each routed page component.
+ * Prefer `useRouteSeo("/about")`, which pulls the copy from shared/seo-routes.ts so
+ * the runtime tags and the prerendered tags cannot drift. Use this raw hook only for
+ * pages that are not in the route table (i.e. NotFound).
  */
 export function useSeo({
   title,
@@ -77,6 +73,8 @@ export function useSeo({
     upsertMeta("property", "og:description", description);
     upsertMeta("property", "og:type", "website");
     upsertMeta("property", "og:site_name", "Josh Moore");
+    upsertMeta("property", "og:image", OG_IMAGE_URL);
+    upsertMeta("name", "twitter:card", "summary_large_image");
 
     if (noindex) {
       upsertMeta("name", "robots", "noindex, follow");
@@ -103,6 +101,15 @@ export function useSeo({
       removeTags('meta[property="og:url"]');
     }
   }, [title, description, path, noindex]);
+}
+
+/**
+ * Set the head tags for a route from the shared route table.
+ * Call once at the top of each routed page component.
+ */
+export function useRouteSeo(path: RoutePath): void {
+  const { title, description } = getRoute(path);
+  useSeo({ title, description, path });
 }
 
 export default useSeo;

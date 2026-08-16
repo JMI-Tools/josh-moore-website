@@ -15,19 +15,34 @@
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <link rel="icon" type="image/png" href="/logo-jm.png" />
-    <title>Josh Moore - Creative Finance Solutions</title>
-    <meta name="description" content="Creative finance solutions for impossible real estate deals in Michigan. Specializing in residential and commercial properties." />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!--
-      Defaults for "/". Every routed page overrides title/description/canonical/og
-      at runtime via client/src/hooks/useSeo.ts.
+      THIS FILE IS A TEMPLATE. The tags between the SEO markers below hold the
+      values for "/", and scripts/prerender-seo.ts rewrites them for every other
+      route after `vite build`, emitting dist/public/about.html, /buy-box.html and
+      so on from shared/seo-routes.ts. Vercel's cleanUrls serves each of those
+      files directly, so the correct title/description/canonical/og:url are in the
+      SOURCE HTML for crawlers and link unfurlers, which never run JavaScript.
+
+      Keep the tag shapes below byte-compatible with the regexes in that script —
+      it fails the build loudly if it cannot find each one exactly once.
     -->
+    <!-- SEO:BEGIN -->
+    <title>Josh Moore | Creative Finance Real Estate Investor in Michigan</title>
+    <meta name="description" content="Josh Moore uses creative financing to buy single family, multifamily, commercial, RV park and mobile home park deals in Michigan and beyond." />
     <link rel="canonical" href="https://www.itsjoshmoore.com/" />
+    <meta property="og:url" content="https://www.itsjoshmoore.com/" />
+    <meta property="og:title" content="Josh Moore | Creative Finance Real Estate Investor in Michigan" />
+    <meta property="og:description" content="Josh Moore uses creative financing to buy single family, multifamily, commercial, RV park and mobile home park deals in Michigan and beyond." />
+    <!-- SEO:END -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Josh Moore" />
-    <meta property="og:url" content="https://www.itsjoshmoore.com/" />
-    <meta property="og:title" content="Josh Moore - Creative Finance Solutions" />
-    <meta property="og:description" content="Creative finance solutions for impossible real estate deals in Michigan. Specializing in residential and commercial properties." />
+    <meta property="og:image" content="https://www.itsjoshmoore.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Josh Moore" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />

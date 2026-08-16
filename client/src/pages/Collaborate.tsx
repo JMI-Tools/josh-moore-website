@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useSeo } from "@/hooks/useSeo";
+import { useRouteSeo } from "@/hooks/useSeo";
 
 const STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
@@ -181,12 +181,7 @@ function SelectInput({ value, onChange, options, placeholder }: { value: string;
 const STEP_NAMES = ["Contact Info", "How to Collaborate", "About You", "Details", "Final"];
 
 export default function Collaborate() {
-  useSeo({
-    title: "Collaborate with Josh Moore",
-    description:
-      "An intake form for bird dogs, wholesalers, private and hard money lenders, capital partners, brokers and other industry partners who want to work together.",
-    path: "/collaborate",
-  });
+  useRouteSeo("/collaborate");
 
   const [step, setStep] = useState(0);
   const [category, setCategory] = useState("");

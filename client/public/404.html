@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
     <title>Page Not Found | Josh Moore</title>
-    <link rel="icon" type="image/png" href="/logo-jm.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -57,7 +58,8 @@
 
       .logo {
         height: 3.25rem;
-        width: auto;
+        width: 3.25rem;
+        border-radius: 0.625rem;
         margin: 0 auto 2rem;
         display: block;
       }
@@ -161,7 +163,12 @@
 
   <body>
     <main>
-      <img class="logo" src="/logo-jm.png" alt="Josh Moore" />
+      <!--
+        The JM monogram (34 KB). Deliberately NOT /logo-jm.png or the CloudFront
+        header logo: both are the full-resolution 1536x1024 mockup (2.0 MB / 2.2 MB)
+        and this element renders it 52px tall.
+      -->
+      <img class="logo" src="/apple-touch-icon.png" width="180" height="180" alt="Josh Moore" />
 
       <p class="code">Error 404</p>
       <h1>This page doesn't exist</h1>

@@ -4,10 +4,6 @@
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "outputDirectory": "dist/public",
-  "rewrites": [
-    {
-      "source": "/(about|buy-box|submit-deal|resources|contact|privacy|collaborate|househackingguide)",
-      "destination": "/index.html"
-    }
-  ]
+  "cleanUrls": true,
+  "trailingSlash": false
 }

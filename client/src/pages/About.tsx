@@ -2,15 +2,10 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Target, TrendingUp, Users, Award } from "lucide-react";
-import { useSeo } from "@/hooks/useSeo";
+import { useRouteSeo } from "@/hooks/useSeo";
 
 export default function About() {
-  useSeo({
-    title: "About Josh Moore | Creative Real Estate Investor",
-    description:
-      "Josh Moore's story, core values and areas of expertise: seller financing, subject-to, lease options and wraps across residential and commercial property.",
-    path: "/about",
-  });
+  useRouteSeo("/about");
 
   const values = [
     {

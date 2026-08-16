@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useSeo } from "@/hooks/useSeo";
+import { useRouteSeo } from "@/hooks/useSeo";
 
 type Asset ="sfh" | "mf" | "mhp" | "rv" | "";
 type Step = 0 | 1 | 2 | 3;
@@ -150,12 +150,7 @@ function NavButtons({ onBack, onNext, backLabel = "← Back", nextLabel = "Next 
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function SubmitDeal() {
-  useSeo({
-    title: "Submit a Deal | Josh Moore",
-    description:
-      "Send Josh Moore a property to review. A short guided form covering single family, multifamily, mobile home park and RV park / campground deals.",
-    path: "/submit-deal",
-  });
+  useRouteSeo("/submit-deal");
 
   const [step, setStep] = useState<Step>(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
