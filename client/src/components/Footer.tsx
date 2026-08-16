@@ -73,6 +73,9 @@ export default function Footer() {
 
           {/* Links */}
           <div className="flex items-center gap-6 text-sm">
+            <Link href="/househackingguide">
+              <a className="hover:text-primary transition-colors">House Hacking Guide</a>
+            </Link>
             <Link href="/privacy">
               <a className="hover:text-primary transition-colors">Privacy Policy</a>
             </Link>
