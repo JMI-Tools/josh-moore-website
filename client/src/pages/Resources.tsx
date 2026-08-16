@@ -2,8 +2,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Briefcase, DollarSign, Landmark, GraduationCap, Bot, Video, Mic, Home } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useSeo } from "@/hooks/useSeo";
 
 export default function Resources() {
+  useSeo({
+    title: "Resources for Real Estate Investors | Josh Moore",
+    description:
+      "Tools and services Josh Moore recommends: investor-friendly insurance, hard money and construction lending, free West Michigan deal finder training, and AI tools.",
+    path: "/resources",
+  });
+
   const sections = [
     {
       title: "Financial & Lending Resources",

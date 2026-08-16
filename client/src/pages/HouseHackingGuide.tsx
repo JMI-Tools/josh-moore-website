@@ -2,8 +2,16 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Download, BookOpen, CheckCircle2 } from "lucide-react";
+import { useSeo } from "@/hooks/useSeo";
 
 export default function HouseHackingGuide() {
+  useSeo({
+    title: "Live In, Rent Smart | Free House Hacking Guide by Josh Moore",
+    description:
+      "A free beginner's guide to house hacking. Download the PDF or read it online to lower your housing cost, learn the numbers and buy with a plan.",
+    path: "/househackingguide",
+  });
+
   const chapters = [
     {
       number: "01",

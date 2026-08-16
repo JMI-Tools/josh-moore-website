@@ -14,6 +14,18 @@ import Privacy from "./pages/Privacy";
 import Collaborate from "./pages/Collaborate";
 import HouseHackingGuide from "./pages/HouseHackingGuide";
 
+/**
+ * IMPORTANT — these routes are duplicated in `vercel.json`.
+ *
+ * Production serves this SPA as static files. Only paths listed in the
+ * `rewrites` alternation in vercel.json are rewritten to /index.html; every
+ * other path returns a real HTTP 404 (deliberate — a blanket catch-all is what
+ * caused the soft-404 problem). Adding a <Route> here WITHOUT adding the same
+ * path to vercel.json will work in local dev and hard-404 in production.
+ *
+ * New public routes must also be added to client/public/sitemap.xml.
+ * "/404" is intentionally excluded from both.
+ */
 function Router() {
   return (
     <Switch>

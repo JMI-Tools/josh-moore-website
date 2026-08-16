@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useSeo } from "@/hooks/useSeo";
 
 const socialLinks = [
   {
@@ -35,6 +36,13 @@ const socialLinks = [
 ];
 
 export default function Contact() {
+  useSeo({
+    title: "Contact Josh Moore | Book a Call",
+    description:
+      "Schedule a time with Josh Moore to talk through a deal or a partnership, and follow along on Instagram, TikTok, X, Threads and LinkedIn.",
+    path: "/contact",
+  });
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />

@@ -2,8 +2,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Home } from "lucide-react";
 import { useLocation } from "wouter";
+import { useSeo } from "@/hooks/useSeo";
 
 export default function NotFound() {
+  // No canonical: this URL must never be presented as the preferred version of
+  // anything. noindex keeps client-rendered 404s out of the index.
+  useSeo({
+    title: "Page Not Found | Josh Moore",
+    description:
+      "The page you are looking for doesn't exist. It may have been moved or deleted.",
+    path: null,
+    noindex: true,
+  });
+
   const [, setLocation] = useLocation();
 
   const handleGoHome = () => {

@@ -1,7 +1,15 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useSeo } from "@/hooks/useSeo";
 
 export default function Privacy() {
+  useSeo({
+    title: "Privacy Policy | Josh Moore",
+    description:
+      "How itsjoshmoore.com collects, uses and shares the information you provide through the deal submission and contact forms.",
+    path: "/privacy",
+  });
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />

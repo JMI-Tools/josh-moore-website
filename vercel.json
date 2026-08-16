@@ -1,9 +1,13 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "outputDirectory": "dist/public",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/(about|buy-box|submit-deal|resources|contact|privacy|collaborate|househackingguide)",
+      "destination": "/index.html"
+    }
   ]
 }

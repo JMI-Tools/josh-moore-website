@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, MapPin, DollarSign, Home, Building2, Caravan, Target, XCircle, TrendingUp } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useSeo } from "@/hooks/useSeo";
 
 interface BuyBoxCard {
   title: string;
@@ -80,6 +81,13 @@ const cards: BuyBoxCard[] = [
 ];
 
 export default function BuyBox() {
+  useSeo({
+    title: "Buy Box | What Josh Moore Is Buying",
+    description:
+      "Investment criteria for single family, commercial multifamily, mobile home park and RV park deals: price caps, unit counts, markets, financing and deal killers.",
+    path: "/buy-box",
+  });
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-white via-blue-50/30 to-white">
       <Header />
