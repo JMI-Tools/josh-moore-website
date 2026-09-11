@@ -168,8 +168,17 @@ export default function Contractors() {
     const missing = need.filter((k) => !filled(k));
     setBad(missing);
     if (missing.length) {
-      const el = document.querySelector<HTMLElement>(`[data-field="${missing[0]}"]`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // scrollIntoView was landing a few pixels from where it started, leaving the
+      // user staring at an unchanged screen while the real error sat thousands of
+      // pixels up the page. Compute the target and scroll the window directly.
+      requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLElement>(`[data-field="${missing[0]}"]`);
+        if (!el) return;
+        const top = el.getBoundingClientRect().top + window.scrollY - Math.max(90, window.innerHeight * 0.25);
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        const focusable = el.querySelector<HTMLElement>("input, select, textarea, button");
+        if (focusable) setTimeout(() => focusable.focus({ preventScroll: true }), 450);
+      });
       return;
     }
 
@@ -233,58 +242,10 @@ export default function Contractors() {
 
   /* ------------------------------------------------------------- pieces */
 
-  const Err = ({ k, msg }: { k: string; msg: string }) =>
-    bad.includes(k) ? <div className="jmc-err">{msg}</div> : null;
-
-  const Text = (p: { k: string; label: string; hint?: string; req?: boolean; ph?: string; type?: string; area?: boolean }) => (
-    <div className="jmc-f" data-field={p.k}>
-      <label htmlFor={`jmc-${p.k}`}>
-        {p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}
-      </label>
-      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
-      {p.area ? (
-        <textarea id={`jmc-${p.k}`} value={vals[p.k] || ""} placeholder={p.ph}
-          className={bad.includes(p.k) ? "jmc-bad" : ""}
-          onChange={(e) => set(p.k, e.target.value)} />
-      ) : (
-        <input id={`jmc-${p.k}`} type={p.type || "text"} value={vals[p.k] || ""} placeholder={p.ph}
-          className={bad.includes(p.k) ? "jmc-bad" : ""}
-          autoComplete={p.k === "name" ? "name" : p.k === "email" ? "email" : p.k === "phone" ? "tel" : undefined}
-          onChange={(e) => set(p.k, e.target.value)} />
-      )}
-      <Err k={p.k} msg="We need this one." />
-    </div>
-  );
-
-  const Select = (p: { k: string; label: string; req?: boolean; opts: string[]; hint?: string }) => (
-    <div className="jmc-f" data-field={p.k}>
-      <label htmlFor={`jmc-${p.k}`}>
-        {p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}
-      </label>
-      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
-      <select id={`jmc-${p.k}`} value={vals[p.k] || ""} className={bad.includes(p.k) ? "jmc-bad" : ""}
-        onChange={(e) => set(p.k, e.target.value)}>
-        <option value="">Select</option>
-        {p.opts.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-      <Err k={p.k} msg="Pick one." />
-    </div>
-  );
-
-  const Pills = (p: { k: string; label: string; req?: boolean; hint?: string; opts: Array<[string, string]> }) => (
-    <div className="jmc-f" data-field={p.k}>
-      <label>{p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}</label>
-      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
-      <div className="jmc-pills">
-        {p.opts.map(([v, t]) => (
-          <button type="button" key={v}
-            className={"jmc-pill" + (picks[p.k] === v ? " on" : "")}
-            onClick={() => pick(p.k, v)}>{t}</button>
-        ))}
-      </div>
-      <Err k={p.k} msg="Pick one." />
-    </div>
-  );
+  // Field components live at module scope (below). Defining them inline here
+  // gave React a new component type every render, which remounted every input on
+  // each keystroke and dropped focus. F carries the state they need.
+  const F = { vals, set, bad, picks, pick };
 
   /* ---------------------------------------------------------------- done */
 
@@ -376,12 +337,12 @@ export default function Contractors() {
 
         <form className="jmc-wrap" onSubmit={onSubmit} noValidate>
           <Section n="01" title="How to reach you" sub="The basics. Everything else builds off this.">
-            <Text k="name" label="Your name" req />
-            <Text k="company" label="Business name" hint="Leave blank if you work under your own name." />
-            <Text k="phone" label="Mobile number" req type="tel" ph="(269) 555-0100" hint="This is where job offers and scheduling texts go." />
-            <Pills k="sms" label="Can that number receive text messages?" req opts={[["yes", "Yes"], ["no", "No, call me"]]} />
-            <Text k="email" label="Email" req type="email" hint="Where we send your paperwork and payment records." />
-            <Pills k="contactPref" label="Best way to reach you" req opts={[["text", "Text"], ["call", "Call"], ["email", "Email"]]} />
+            <Text {...F} k="name" label="Your name" req />
+            <Text {...F} k="company" label="Business name" hint="Leave blank if you work under your own name." />
+            <Text {...F} k="phone" label="Mobile number" req type="tel" ph="(269) 555-0100" hint="This is where job offers and scheduling texts go." />
+            <Pills {...F} k="sms" label="Can that number receive text messages?" req opts={[["yes", "Yes"], ["no", "No, call me"]]} />
+            <Text {...F} k="email" label="Email" req type="email" hint="Where we send your paperwork and payment records." />
+            <Pills {...F} k="contactPref" label="Best way to reach you" req opts={[["text", "Text"], ["call", "Call"], ["email", "Email"]]} />
           </Section>
 
           <Section n="02" title="What you do" sub="Check everything you take on. Be generous, we would rather call you and hear no.">
@@ -399,16 +360,16 @@ export default function Contractors() {
                 </div>
               ))}
               <div className="jmc-count"><b>{tradeList.length}</b> selected</div>
-              <Err k="trades" msg="Pick at least one." />
+              <Err k="trades" msg="Pick at least one." bad={bad} />
             </div>
-            <Text k="tradesOther" label="Anything not on that list?" ph="Septic, well pumps, masonry, pools" />
-            <Select k="primaryTrade" label="Your main trade" req opts={tradeList}
+            <Text {...F} k="tradesOther" label="Anything not on that list?" ph="Septic, well pumps, masonry, pools" />
+            <Select {...F} k="primaryTrade" label="Your main trade" req opts={tradeList}
               hint="The one you would want to be called for first." />
             <div className="jmc-row">
-              <Select k="years" label="Years doing this" req opts={["Under 2", "2 to 5", "5 to 10", "10 to 20", "20 or more"]} />
-              <Select k="crew" label="Is it just you?" req opts={["Just me", "Me plus 1 or 2", "Crew of 3 to 5", "Crew of 6 or more"]} />
+              <Select {...F} k="years" label="Years doing this" req opts={["Under 2", "2 to 5", "5 to 10", "10 to 20", "20 or more"]} />
+              <Select {...F} k="crew" label="Is it just you?" req opts={["Just me", "Me plus 1 or 2", "Crew of 3 to 5", "Crew of 6 or more"]} />
             </div>
-            <Pills k="capacity" label="How many jobs can you comfortably run at once?" opts={[["1", "One"], ["2", "Two"], ["3+", "Three or more"]]} />
+            <Pills {...F} k="capacity" label="How many jobs can you comfortably run at once?" opts={[["1", "One"], ["2", "Two"], ["3+", "Three or more"]]} />
           </Section>
 
           <Section n="03" title="How you work" sub="There is no wrong answer here. Plenty of our work does not need a license, and we hire accordingly.">
@@ -423,34 +384,34 @@ export default function Contractors() {
                   </button>
                 ))}
               </div>
-              <Err k="licenseType" msg="Pick one." />
+              <Err k="licenseType" msg="Pick one." bad={bad} />
               {isLicensed ? (
                 <div className="jmc-reveal">
                   <div className="jmc-row">
-                    <Text k="licenseKind" label="License type" ph="Residential builder, master electrician" />
-                    <Text k="licenseNumber" label="License number" />
+                    <Text {...F} k="licenseKind" label="License type" ph="Residential builder, master electrician" />
+                    <Text {...F} k="licenseNumber" label="License number" />
                   </div>
                   <div className="jmc-row">
-                    <Text k="licenseState" label="State" />
-                    <Text k="licenseExpiry" label="Expires" ph="MM/YYYY" />
+                    <Text {...F} k="licenseState" label="State" />
+                    <Text {...F} k="licenseExpiry" label="Expires" ph="MM/YYYY" />
                   </div>
                 </div>
               ) : null}
             </div>
 
-            <Pills k="insured" label="Do you carry general liability insurance?" req opts={[["yes", "Yes"], ["no", "No"]]} />
+            <Pills {...F} k="insured" label="Do you carry general liability insurance?" req opts={[["yes", "Yes"], ["no", "No"]]} />
             {isInsured ? (
               <div className="jmc-reveal">
                 <div className="jmc-row3">
-                  <Text k="insCarrier" label="Carrier" />
-                  <Text k="insCoverage" label="Coverage" ph="$1,000,000" />
-                  <Text k="insExpiry" label="Expires" ph="MM/YYYY" />
+                  <Text {...F} k="insCarrier" label="Carrier" />
+                  <Text {...F} k="insCoverage" label="Coverage" ph="$1,000,000" />
+                  <Text {...F} k="insExpiry" label="Expires" ph="MM/YYYY" />
                 </div>
-                <Pills k="coi" label="Can you send a certificate of insurance if we ask?" opts={[["yes", "Yes"], ["no", "Not right now"]]} />
+                <Pills {...F} k="coi" label="Can you send a certificate of insurance if we ask?" opts={[["yes", "Yes"], ["no", "Not right now"]]} />
               </div>
             ) : null}
 
-            <Pills k="comp" label="Workers comp" req opts={[["yes", "Yes, I carry it"], ["exempt", "Exempt, sole proprietor"], ["no", "No"]]} />
+            <Pills {...F} k="comp" label="Workers comp" req opts={[["yes", "Yes, I carry it"], ["exempt", "Exempt, sole proprietor"], ["no", "No"]]} />
           </Section>
 
           <Section n="04" title="Where you work" sub="Check every county you will drive to.">
@@ -463,51 +424,51 @@ export default function Contractors() {
                 ))}
               </div>
               <div className="jmc-count"><b>{(sets.areas || []).length}</b> selected</div>
-              <Err k="areas" msg="Pick at least one county." />
+              <Err k="areas" msg="Pick at least one county." bad={bad} />
             </div>
             <div className="jmc-row">
-              <Text k="areasOther" label="Any county not listed?" ph="County name" />
-              <Select k="radius" label="How far will you travel?" opts={["Up to 20 miles", "Up to 40 miles", "Up to 60 miles", "Anywhere, for the right job"]} />
+              <Text {...F} k="areasOther" label="Any county not listed?" ph="County name" />
+              <Select {...F} k="radius" label="How far will you travel?" opts={["Up to 20 miles", "Up to 40 miles", "Up to 60 miles", "Anywhere, for the right job"]} />
             </div>
-            <Text k="areasAvoid" label="Anywhere you would rather not go?" ph="County, town, or area" />
+            <Text {...F} k="areasAvoid" label="Anywhere you would rather not go?" ph="County, town, or area" />
           </Section>
 
           <Section n="05" title="Pricing and payment" sub="Rough is fine. We are not holding you to a number here.">
-            <Pills k="pricing" label="How do you usually price work?" req opts={[["bid", "By the bid"], ["hourly", "Hourly"], ["unit", "By the unit"], ["mix", "Mix of those"]]} />
-            <Text k="rate" label="Typical rate or range" ph="$65/hr, or $385 a square" />
-            <Pills k="ten99" label="Are you set up to be paid as a 1099 contractor?" req
+            <Pills {...F} k="pricing" label="How do you usually price work?" req opts={[["bid", "By the bid"], ["hourly", "Hourly"], ["unit", "By the unit"], ["mix", "Mix of those"]]} />
+            <Text {...F} k="rate" label="Typical rate or range" ph="$65/hr, or $385 a square" />
+            <Pills {...F} k="ten99" label="Are you set up to be paid as a 1099 contractor?" req
               hint="We will collect a W-9 from you before your first payment, not here."
               opts={[["yes", "Yes"], ["no", "No"], ["unsure", "Not sure"]]} />
           </Section>
 
           <Section n="06" title="Availability" sub="Helps us stop calling you about work you cannot take." optional>
-            <Select k="leadTime" label="Notice you need to schedule" opts={["A day or two", "About a week", "Two weeks", "A month"]}
+            <Select {...F} k="leadTime" label="Notice you need to schedule" opts={["A day or two", "About a week", "Two weeks", "A month"]}
               hint="How much heads up you want before a start date." />
-            <Pills k="weekends" label="Do you work weekends?" opts={[["yes", "Yes"], ["sometimes", "Sometimes"], ["no", "No"]]} />
+            <Pills {...F} k="weekends" label="Do you work weekends?" opts={[["yes", "Yes"], ["sometimes", "Sometimes"], ["no", "No"]]} />
           </Section>
 
           <Section n="07" title="Show us your work" sub="Anything that shows what you do. Skip it if you would rather just talk." optional>
             <div className="jmc-row">
-              <Text k="website" label="Website" ph="https://" />
-              <Text k="facebook" label="Facebook" />
+              <Text {...F} k="website" label="Website" ph="https://" />
+              <Text {...F} k="facebook" label="Facebook" />
             </div>
             <div className="jmc-row">
-              <Text k="instagram" label="Instagram" ph="@handle" />
-              <Text k="google" label="Google Business listing" />
+              <Text {...F} k="instagram" label="Instagram" ph="@handle" />
+              <Text {...F} k="google" label="Google Business listing" />
             </div>
-            <Text k="photoLinks" label="Photos of recent work" hint="Paste a link to a folder, album, or post. You can also just text them to us later." />
+            <Text {...F} k="photoLinks" label="Photos of recent work" hint="Paste a link to a folder, album, or post. You can also just text them to us later." />
             <div className="jmc-ref">
               <div className="jmc-ref__h">REFERENCE 1</div>
-              <div className="jmc-row"><Text k="ref1name" label="Name" /><Text k="ref1phone" label="Phone" type="tel" /></div>
+              <div className="jmc-row"><Text {...F} k="ref1name" label="Name" /><Text {...F} k="ref1phone" label="Phone" type="tel" /></div>
             </div>
             <div className="jmc-ref">
               <div className="jmc-ref__h">REFERENCE 2</div>
-              <div className="jmc-row"><Text k="ref2name" label="Name" /><Text k="ref2phone" label="Phone" type="tel" /></div>
+              <div className="jmc-row"><Text {...F} k="ref2name" label="Name" /><Text {...F} k="ref2phone" label="Phone" type="tel" /></div>
             </div>
           </Section>
 
           <Section n="08" title="Anything else" sub="Last box. Tell us whatever does not fit above." optional>
-            <Text k="notes" label="Anything else we should know?" area ph="What you are best at, what you would rather not touch, who sent you" />
+            <Text {...F} k="notes" label="Anything else we should know?" area ph="What you are best at, what you would rather not touch, who sent you" />
           </Section>
 
           {sendError ? (
@@ -534,7 +495,87 @@ export default function Contractors() {
   );
 }
 
+
+/* ------------------------------------------------------- field components
+   These MUST stay at module scope. Declared inside Contractors they would be a
+   new component type on every render, so React would unmount and remount each
+   input as you typed and the keyboard would close after every character. */
+
+type FieldCtx = {
+  vals: Vals;
+  set: (k: string, v: string) => void;
+  bad: string[];
+  picks: Vals;
+  pick: (k: string, v: string) => void;
+};
+
+function Err({ k, msg, bad }: { k: string; msg: string; bad: string[] }) {
+  if (!bad.includes(k)) return null;
+  return <div className="jmc-err">{msg}</div>;
+}
+
+function Text(p: FieldCtx & { k: string; label: string; hint?: string; req?: boolean; ph?: string; type?: string; area?: boolean }) {
+  const common = {
+    id: `jmc-${p.k}`,
+    value: p.vals[p.k] || "",
+    placeholder: p.ph,
+    className: p.bad.includes(p.k) ? "jmc-bad" : "",
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => p.set(p.k, e.target.value),
+  };
+  return (
+    <div className="jmc-f" data-field={p.k}>
+      <label htmlFor={`jmc-${p.k}`}>
+        {p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}
+      </label>
+      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
+      {p.area ? <textarea {...common} /> : (
+        <input
+          {...common}
+          type={p.type || "text"}
+          inputMode={p.type === "tel" ? "tel" : p.type === "email" ? "email" : undefined}
+          autoComplete={p.k === "name" ? "name" : p.k === "email" ? "email" : p.k === "phone" ? "tel" : p.k === "company" ? "organization" : undefined}
+        />
+      )}
+      <Err k={p.k} msg="We need this one." bad={p.bad} />
+    </div>
+  );
+}
+
+function Select(p: FieldCtx & { k: string; label: string; req?: boolean; opts: string[]; hint?: string }) {
+  return (
+    <div className="jmc-f" data-field={p.k}>
+      <label htmlFor={`jmc-${p.k}`}>
+        {p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}
+      </label>
+      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
+      <select id={`jmc-${p.k}`} value={p.vals[p.k] || ""} className={p.bad.includes(p.k) ? "jmc-bad" : ""}
+        onChange={(e) => p.set(p.k, e.target.value)}>
+        <option value="">Select</option>
+        {p.opts.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <Err k={p.k} msg="Pick one." bad={p.bad} />
+    </div>
+  );
+}
+
+function Pills(p: FieldCtx & { k: string; label: string; req?: boolean; hint?: string; opts: Array<[string, string]> }) {
+  return (
+    <div className="jmc-f" data-field={p.k}>
+      <label>{p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}</label>
+      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
+      <div className="jmc-pills">
+        {p.opts.map(([v, t]) => (
+          <button type="button" key={v} className={"jmc-pill" + (p.picks[p.k] === v ? " on" : "")}
+            onClick={() => p.pick(p.k, v)}>{t}</button>
+        ))}
+      </div>
+      <Err k={p.k} msg="Pick one." bad={p.bad} />
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------- shell */
+
 
 function Section(p: { n: string; title: string; sub: string; optional?: boolean; children: React.ReactNode }) {
   return (
