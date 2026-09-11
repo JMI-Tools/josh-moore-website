@@ -107,6 +107,16 @@ export const SITE_ROUTES = [
     priority: "0.7",
   },
   {
+    path: "/contractors",
+    file: "contractors.html",
+    title: "Work With Us | Contractors and Trades | Josh Moore",
+    description:
+      "Contractors, subs and tradesmen in Muskegon, Kent, Ottawa and Kalamazoo counties: tell us what you do and where you work, and we will call you when a job in your trade comes up.",
+    lastmod: "2026-09-11",
+    changefreq: "monthly",
+    priority: "0.7",
+  },
+  {
     path: "/resources",
     file: "resources.html",
     title: "Resources for Real Estate Investors | Josh Moore",
