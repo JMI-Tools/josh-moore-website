@@ -168,17 +168,17 @@ export default function Contractors() {
     const missing = need.filter((k) => !filled(k));
     setBad(missing);
     if (missing.length) {
-      // scrollIntoView was landing a few pixels from where it started, leaving the
-      // user staring at an unchanged screen while the real error sat thousands of
-      // pixels up the page. Compute the target and scroll the window directly.
-      requestAnimationFrame(() => {
+      // Rendering the errors changes the page height, which was cancelling a smooth
+      // scroll mid-flight and leaving the user on an unchanged screen. Wait for that
+      // paint, then jump instantly so it cannot be interrupted.
+      setTimeout(() => {
         const el = document.querySelector<HTMLElement>(`[data-field="${missing[0]}"]`);
         if (!el) return;
-        const top = el.getBoundingClientRect().top + window.scrollY - Math.max(90, window.innerHeight * 0.25);
-        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        const top = el.getBoundingClientRect().top + window.scrollY - Math.max(90, window.innerHeight * 0.3);
+        window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
         const focusable = el.querySelector<HTMLElement>("input, select, textarea, button");
-        if (focusable) setTimeout(() => focusable.focus({ preventScroll: true }), 450);
-      });
+        if (focusable) setTimeout(() => focusable.focus({ preventScroll: true }), 60);
+      }, 80);
       return;
     }
 
@@ -481,8 +481,14 @@ export default function Contractors() {
 
       <div className="jmc-submit">
         <div className="jmc-submit__in">
-          <div className="jmc-submit__note">
-            {pct === 100 ? "Looks complete." : `${need.length - got} left. Takes about four minutes.`}
+          {/* When a tap on Submit does nothing, the reason has to be right here next
+              to the button, not somewhere up the page the user has to go hunting for. */}
+          <div className={"jmc-submit__note" + (bad.length ? " is-bad" : "")}>
+            {bad.length
+              ? `Still needed: ${bad.slice(0, 3).map((k) => LABELS[k] || k).join(", ")}${bad.length > 3 ? `, and ${bad.length - 3} more` : ""}`
+              : pct === 100
+                ? "Looks complete."
+                : `${need.length - got} left. Takes about four minutes.`}
           </div>
           <button type="submit" className="jmc-btn" disabled={sending} onClick={onSubmit}>
             {sending ? "Sending..." : "Submit"}
@@ -672,6 +678,7 @@ margin:14px 0;font-size:14px}
 backdrop-filter:blur(8px);border-top:1px solid var(--c-line);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
 .jmc-submit__in{max-width:680px;margin:0 auto;display:flex;align-items:center;gap:14px}
 .jmc-submit__note{font-size:13px;color:var(--c-ink2);flex:1;line-height:1.35}
+.jmc-submit__note.is-bad{color:var(--c-red);font-weight:600}
 .jmc-btn{font:inherit;font-size:16px;font-weight:600;padding:13px 26px;border-radius:10px;border:1px solid var(--c-acc);
 background:var(--c-acc);color:#fff;cursor:pointer;flex:none;text-decoration:none;display:inline-block}
 .jmc-btn:hover{background:#1D4ED8;border-color:#1D4ED8}
