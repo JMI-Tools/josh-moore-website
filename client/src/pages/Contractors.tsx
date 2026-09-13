@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRouteSeo } from "@/hooks/useSeo";
@@ -66,11 +66,13 @@ export default function Contractors() {
 
   const set = (k: string, v: string) => setVals((p) => ({ ...p, [k]: v }));
   const pick = (k: string, v: string) => setPicks((p) => ({ ...p, [k]: v }));
-  const toggle = (k: string, v: string) =>
+  // Stable identity so the memoized chip grids below do not re-render while typing.
+  const toggle = useCallback((k: string, v: string) => {
     setSets((p) => {
       const cur = p[k] || [];
       return { ...p, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : cur.concat(v) };
     });
+  }, []);
 
   /* draft, harmless if storage is blocked */
   useEffect(() => {
@@ -89,12 +91,18 @@ export default function Contractors() {
     }
   }, []);
 
+  // Debounced. This used to run on every keystroke, and a synchronous localStorage
+  // write of the whole form on each character is slow enough inside the Facebook and
+  // Messenger in-app browsers to drop characters and dismiss the keyboard.
   useEffect(() => {
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ vals, sets, picks }));
-    } catch {
-      /* private mode, fine */
-    }
+    const id = window.setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ vals, sets, picks }));
+      } catch {
+        /* private mode, fine */
+      }
+    }, 400);
+    return () => window.clearTimeout(id);
   }, [vals, sets, picks]);
 
   /* video overlay */
@@ -161,6 +169,15 @@ export default function Contractors() {
 
   const isLicensed = picks.licenseType === "licensed_builder" || picks.licenseType === "licensed_trade";
   const isInsured = picks.insured === "yes";
+
+  // Facebook and Messenger open links in their own stripped down WebView, which is
+  // slow and handles form focus badly. Most of our traffic arrives that way, so say
+  // plainly how to get out of it rather than letting people fight the keyboard.
+  const [inApp, setInApp] = useState(false);
+  useEffect(() => {
+    const ua = navigator.userAgent || "";
+    setInApp(/FBAN|FBAV|FB_IAB|Instagram|Messenger|FBMD/i.test(ua));
+  }, []);
 
   /* submit */
   async function onSubmit(e: React.FormEvent) {
@@ -335,6 +352,20 @@ export default function Contractors() {
           </div>
         </section>
 
+        {inApp ? (
+          <div className="jmc-wrap">
+            <div className="jmc-inapp">
+              <b>Typing giving you trouble?</b>
+              <span>
+                You opened this inside Facebook, and its built in browser fights with the
+                keyboard. Tap the three dots in the corner and choose <b>Open in browser</b>,
+                or paste <b>itsjoshmoore.com/contractors</b> into Safari or Chrome. Anything
+                you have already filled in is saved on this phone.
+              </span>
+            </div>
+          </div>
+        ) : null}
+
         <form className="jmc-wrap" onSubmit={onSubmit} noValidate>
           <Section n="01" title="How to reach you" sub="The basics. Everything else builds off this.">
             <Text {...F} k="name" label="Your name" req />
@@ -347,18 +378,7 @@ export default function Contractors() {
 
           <Section n="02" title="What you do" sub="Check everything you take on. Be generous, we would rather call you and hear no.">
             <div className="jmc-f" data-field="trades">
-              {TRADE_GROUPS.map(([g, list]) => (
-                <div className="jmc-tgroup" key={g}>
-                  <div className="jmc-tgroup__h">{g.toUpperCase()}</div>
-                  <div className="jmc-chips">
-                    {list.map((t) => (
-                      <button type="button" key={t}
-                        className={"jmc-chip" + ((sets.trades || []).includes(t) ? " on" : "")}
-                        onClick={() => toggle("trades", t)}>{t}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              <TradeChips selected={sets.trades || []} toggle={toggle} />
               <div className="jmc-count"><b>{tradeList.length}</b> selected</div>
               <Err k="trades" msg="Pick at least one." bad={bad} />
             </div>
@@ -416,13 +436,7 @@ export default function Contractors() {
 
           <Section n="04" title="Where you work" sub="Check every county you will drive to.">
             <div className="jmc-f" data-field="areas">
-              <div className="jmc-chips">
-                {COUNTIES.map((c) => (
-                  <button type="button" key={c}
-                    className={"jmc-chip" + ((sets.areas || []).includes(c) ? " on" : "")}
-                    onClick={() => toggle("areas", c)}>{c}</button>
-                ))}
-              </div>
+              <CountyChips selected={sets.areas || []} toggle={toggle} />
               <div className="jmc-count"><b>{(sets.areas || []).length}</b> selected</div>
               <Err k="areas" msg="Pick at least one county." bad={bad} />
             </div>
@@ -501,6 +515,46 @@ export default function Contractors() {
   );
 }
 
+
+/* ----------------------------------------------------------- chip grids
+   61 buttons between them. Memoized on the selected list alone, so typing a
+   name no longer re-renders every chip on the page. That per-keystroke work
+   is what made the Facebook and Messenger in-app browsers drop characters. */
+
+const TradeChips = memo(function TradeChips(
+  { selected, toggle }: { selected: string[]; toggle: (k: string, v: string) => void },
+) {
+  return (
+    <>
+      {TRADE_GROUPS.map(([g, list]) => (
+        <div className="jmc-tgroup" key={g}>
+          <div className="jmc-tgroup__h">{g.toUpperCase()}</div>
+          <div className="jmc-chips">
+            {list.map((t) => (
+              <button type="button" key={t}
+                className={"jmc-chip" + (selected.includes(t) ? " on" : "")}
+                onClick={() => toggle("trades", t)}>{t}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+});
+
+const CountyChips = memo(function CountyChips(
+  { selected, toggle }: { selected: string[]; toggle: (k: string, v: string) => void },
+) {
+  return (
+    <div className="jmc-chips">
+      {COUNTIES.map((c) => (
+        <button type="button" key={c}
+          className={"jmc-chip" + (selected.includes(c) ? " on" : "")}
+          onClick={() => toggle("areas", c)}>{c}</button>
+      ))}
+    </div>
+  );
+});
 
 /* ------------------------------------------------------- field components
    These MUST stay at module scope. Declared inside Contractors they would be a
@@ -672,6 +726,11 @@ border:1px solid var(--c-line2);border-radius:10px;background:#fff;font:inherit;
 .jmc-ref{border:1px solid var(--c-line);border-radius:10px;padding:14px;margin-bottom:10px;background:var(--c-bg)}
 .jmc-ref__h{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--c-ink3);margin-bottom:10px}
 .jmc-err{color:var(--c-red);font-size:13px;margin-top:5px}
+.jmc-inapp{background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:15px 16px;margin:14px 0;
+display:flex;flex-direction:column;gap:6px}
+.jmc-inapp b{color:#92400E;font-weight:650;font-size:14.5px}
+.jmc-inapp span{color:#78350F;font-size:14px;line-height:1.55}
+.jmc-inapp span b{font-weight:650}
 .jmc-sendfail{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;border-radius:10px;padding:14px;
 margin:14px 0;font-size:14px}
 .jmc-submit{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(248,250,252,.94);
