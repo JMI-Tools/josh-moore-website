@@ -91,7 +91,7 @@ export default function Home() {
                 </h1>
                 
                 <p className="text-xl md:text-2xl text-blue-100 leading-relaxed">
-                  I'm Josh Moore, a creative real estate investor in Michigan. I use creative finance to provide solutions for homeowners and investors on both residential and commercial scales—turning seemingly impossible deals into win-win opportunities.
+                  I'm Josh Moore, a creative real estate investor in Michigan. I use creative finance to provide solutions for homeowners and investors on both residential and commercial scalesâ€”turning seemingly impossible deals into win-win opportunities.
                 </p>
 
                 {/* Benefits List */}
@@ -123,7 +123,7 @@ export default function Home() {
               <div className="relative lg:h-[600px] flex items-end justify-center">
                 <div className="absolute inset-0 bg-gradient-to-t from-secondary via-transparent to-transparent z-10"></div>
                 <img 
-                  src="https://d2xsxph8kpxj0f.cloudfront.net/310519663274333910/BDvsG8QwM5MRn7rkKqLxFL/josh-photo_c93c4e34.png" 
+                  src="/josh-photo.png"
                   alt="Josh Moore" 
                   className="relative z-0 h-full w-auto object-contain object-bottom drop-shadow-2xl animate-fade-in-up"
                 />
@@ -210,12 +210,12 @@ export default function Home() {
                 {
                   title: "Creative Solutions",
                   description: "I specialize in finding creative financing options that traditional buyers can't offer, making deals work when others say no.",
-                  icon: "💡",
+                  icon: "ðŸ’¡",
                 },
                 {
                   title: "Fast & Flexible",
-                  description: "Quick closings with flexible terms tailored to your situation. No cookie-cutter approaches—every deal is unique.",
-                  icon: "⚡",
+                  description: "Quick closings with flexible terms tailored to your situation. No cookie-cutter approachesâ€”every deal is unique.",
+                  icon: "âš¡",
                 },
               ].map((item, idx) => (
                 <div 

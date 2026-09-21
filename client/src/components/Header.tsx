@@ -27,7 +27,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-sm">
       <div className="container flex h-20 items-center justify-between">
         <Link href="/">
-          <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663274333910/BDvsG8QwM5MRn7rkKqLxFL/logo_f73ce9e0.png" alt="Josh Moore" className="h-16 w-auto cursor-pointer" />
+          <img src="/logo-jm.png" alt="Josh Moore" className="h-16 w-auto cursor-pointer" />
         </Link>
 
         {/* Desktop Navigation */}

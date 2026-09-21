@@ -178,7 +178,7 @@ export default function AdminDashboard() {
       <header className="bg-secondary text-secondary-foreground border-b">
         <div className="container flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
-            <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663274333910/BDvsG8QwM5MRn7rkKqLxFL/logo_f73ce9e0.png" alt="Josh Moore" className="h-14 w-auto" />
+            <img src="/logo-jm.png" alt="Josh Moore" className="h-14 w-auto" />
             <h1 className="text-xl font-bold">Admin Dashboard</h1>
           </div>
           <Button variant="outline" size="sm" onClick={() => logoutMutation.mutate()} className="bg-white text-secondary hover:bg-white/90">
