@@ -141,6 +141,13 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="bg-white border-b border-slate-200">
+          <div className="container py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+            <div><p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">The story behind the deals</p><p className="text-lg font-medium">Sales. Music. Sneakers. And a promise that changed everything.</p></div>
+            <a href="/mediakit" className="inline-flex items-center gap-3 text-sm font-semibold text-secondary shrink-0">See my story & press kit <ArrowRight className="h-4 w-4" /></a>
+          </div>
+        </section>
+
         {/* Asset Classes Section */}
         <section className="py-20 relative">
           <div className="container space-y-12">

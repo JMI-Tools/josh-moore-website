@@ -1,0 +1,21 @@
+name: Restore approved media kit source
+on:
+  push:
+    branches: [codex/media-kit-github-sync]
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore and verify published media assets
+        run: python .restore-media-kit.py
+      - name: Commit complete source
+        run: |
+          git config user.name "JMI-Tools"
+          git config user.email "233611891+JMI-Tools@users.noreply.github.com"
+          git rm .media-kit-assets.json .restore-media-kit.py .github/workflows/restore-media-kit.yml
+          git add client/public/media-kit
+          git commit -m "Restore verified published media assets"
+          git push origin HEAD:codex/media-kit-github-sync

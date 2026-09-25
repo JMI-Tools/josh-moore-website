@@ -1,0 +1,65 @@
+[
+  {
+    "id": "01",
+    "label": "Outdoor fence portrait",
+    "group": "Photos",
+    "href": "/media-kit/assets/josh-moore-outdoor-fence.jpg",
+    "format": "JPG"
+  },
+  {
+    "id": "02",
+    "label": "Yellow shirt beside car",
+    "group": "Photos",
+    "href": "/media-kit/assets/josh-moore-yellow-shirt.jpg",
+    "format": "JPG"
+  },
+  {
+    "id": "05",
+    "label": "Circular headshot, close crop",
+    "group": "Photos",
+    "href": "/media-kit/assets/josh-moore-headshot-close.png",
+    "format": "PNG"
+  },
+  {
+    "id": "06",
+    "label": "Circular headshot, wider crop",
+    "group": "Photos",
+    "href": "/media-kit/assets/josh-moore-headshot-wide.png",
+    "format": "PNG"
+  },
+  {
+    "id": "07",
+    "label": "Website portrait cutout",
+    "group": "Photos",
+    "href": "/media-kit/assets/josh-moore-cutout.png",
+    "format": "PNG"
+  },
+  {
+    "id": "08",
+    "label": "Josh Moore branded banner",
+    "group": "Brand graphics",
+    "href": "/media-kit/assets/josh-moore-banner.png",
+    "format": "PNG"
+  },
+  {
+    "id": "09",
+    "label": "JM primary logo",
+    "group": "Brand graphics",
+    "href": "/media-kit/assets/josh-moore-logo.png",
+    "format": "PNG"
+  },
+  {
+    "id": "10",
+    "label": "Website sharing card",
+    "group": "Brand graphics",
+    "href": "/media-kit/assets/josh-moore-sharing-card.jpg",
+    "format": "JPG"
+  },
+  {
+    "id": "11",
+    "label": "Sneaker era, blue and pink lighting",
+    "group": "Archive photos",
+    "href": "/media-kit/assets/josh-moore-sneaker-era.jpg",
+    "format": "JPG"
+  }
+]

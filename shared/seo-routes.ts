@@ -47,6 +47,15 @@ export interface RouteSeo {
 
 export const SITE_ROUTES = [
   {
+    path: "/mediakit",
+    file: "mediakit.html",
+    title: "My Story & Press Kit | Josh Moore",
+    description: "From door-to-door sales and music to full-time real estate investing. Explore Josh Moore's story, biography, awards, press, photos, and media contact.",
+    lastmod: "2026-09-22",
+    changefreq: "monthly",
+    priority: "0.8",
+  },
+  {
     path: "/",
     file: "index.html",
     title: "Josh Moore | Creative Finance Real Estate Investor in Michigan",

@@ -11,6 +11,7 @@ export default function Header() {
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
+    { href: "/mediakit", label: "Story & Press" },
     { href: "/buy-box", label: "Buy Box" },
     { href: "/submit-deal", label: "Submit a Deal" },
     { href: "/resources", label: "Resources" },
@@ -31,7 +32,7 @@ export default function Header() {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-5">
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               <a
@@ -51,7 +52,9 @@ export default function Header() {
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="lg:hidden"
+          aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={mobileMenuOpen}
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
           {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -60,7 +63,7 @@ export default function Header() {
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white">
+        <div className="lg:hidden border-t bg-white">
           <nav className="container flex flex-col py-4 space-y-4">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href}>

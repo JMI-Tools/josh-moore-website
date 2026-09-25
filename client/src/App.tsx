@@ -16,6 +16,7 @@ import Privacy from "./pages/Privacy";
 import Collaborate from "./pages/Collaborate";
 import HouseHackingGuide from "./pages/HouseHackingGuide";
 import Contractors from "./pages/Contractors";
+import MediaKit from "./pages/MediaKit";
 
 /**
  * The route LIST lives in shared/seo-routes.ts â€” it is the single source of truth for
@@ -39,6 +40,7 @@ const PAGES: Record<RoutePath, ComponentType> = {
   "/privacy": Privacy,
   "/collaborate": Collaborate,
   "/contractors": Contractors,
+  "/mediakit": MediaKit,
   "/househackingguide": HouseHackingGuide,
 };
 
