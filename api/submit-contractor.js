@@ -11,11 +11,18 @@
 //
 // After the writes land, Josh gets an email through api/_lib/notify.js. The alert
 // never fails the submission; if it cannot send, it logs and the row still stands.
+//
+// Same origin only. The site posts to its own /api path, so there are no CORS
+// headers here and no preflight branch; a cross-origin page cannot read the reply.
 
-import { notifyJosh } from './_lib/notify.js';
+import { notifyJosh, looksLikeBot } from './_lib/notify.js';
 
 const DB_URL = process.env.TURSO_CONTRACTOR_URL;
 const DB_TOKEN = process.env.TURSO_CONTRACTOR_TOKEN;
+
+// The raw payload is stored as typed. A real submission is a few thousand
+// characters; anything past this is not a contractor filling in a form.
+const MAX_PAYLOAD_CHARS = 32_000;
 
 async function pipeline(statements) {
   const res = await fetch(`${DB_URL}/v2/pipeline`, {
@@ -51,6 +58,13 @@ function clean(s, max) {
   return kept.trim().slice(0, max) || null;
 }
 
+// Multi-line text. clean() would glue the lines together, so clean each line and
+// put the breaks back. Used for the notes box in both the email and the row.
+function cleanLines(s, max) {
+  if (s === null || s === undefined) return null;
+  return String(s).split(/\r?\n/).map((l) => clean(l, max)).filter(Boolean).join('\n').slice(0, max) || null;
+}
+
 // Plain labeled summary for the alert email. Blank answers are left out so the
 // email reads as a list of what the contractor actually said.
 function summarize(d, ctx) {
@@ -75,7 +89,7 @@ function summarize(d, ctx) {
     row('Best way to reach', clean(d.contactPref, 20)),
     '',
     row('Trades', list(ctx.trades)),
-    row('Main trade', clean(d.primaryTrade, 60)),
+    row('Main trade', ctx.primaryTrade),
     row('Years doing this', clean(d.years, 40)),
     row('Crew', clean(d.crew, 40)),
     row('Jobs at once', clean(d.capacity, 10)),
@@ -106,8 +120,7 @@ function summarize(d, ctx) {
     row('Photos', clean(links.photos, 500)),
     ...refs,
     '',
-    // Keep the line breaks the contractor typed; clean() would strip them.
-    row('Notes', d.notes == null ? null : String(d.notes).split(/\r?\n/).map((l) => clean(l, 2000)).filter(Boolean).join('\n').slice(0, 2000)),
+    row('Notes', cleanLines(d.notes, 2000)),
     '',
     row('Source', clean(d.source, 120)),
     row('Record', ctx.id + (ctx.partial ? ' (raw submission saved, contractor row failed)' : '')),
@@ -121,19 +134,44 @@ function summarize(d, ctx) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
 
   if (!DB_URL || !DB_TOKEN) {
     console.error('[submit-contractor] TURSO_CONTRACTOR_URL or TURSO_CONTRACTOR_TOKEN is not set');
     return res.status(500).json({ success: false, error: 'Intake is not configured yet.' });
   }
 
-  const d = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+  // Vercel pre-parses application/json. Anything else arrives as a string and
+  // may not be JSON at all, so never let JSON.parse throw out of the handler.
+  let d;
+  try {
+    d = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+  } catch {
+    return res.status(400).json({ success: false, error: 'Could not read the form. Please refresh and try again.' });
+  }
+  if (!d || typeof d !== 'object' || Array.isArray(d)) {
+    return res.status(400).json({ success: false, error: 'Could not read the form. Please refresh and try again.' });
+  }
+
+  // Bot check. A filled honeypot or a post within seconds of page load gets a
+  // quiet success so the script moves on. Nothing is written and nothing is sent.
+  if (looksLikeBot(d)) {
+    const at = typeof d.email === 'string' ? d.email.indexOf('@') : -1;
+    console.warn('[submit-contractor] dropped as bot', at >= 0 ? d.email.slice(at + 1, at + 80) : 'no email');
+    return res.status(200).json({ success: true, id: 'ctr_' + Date.now().toString(36) });
+  }
+
+  // The two bot-check keys are not part of the submission and never get stored.
+  delete d.company_website;
+  delete d.started_at;
+
+  const raw = JSON.stringify(d);
+  if (raw.length > MAX_PAYLOAD_CHARS) {
+    return res.status(413).json({ success: false, error: 'That is too much text. Please shorten your answers.' });
+  }
 
   // Only the fields the form actually sends. Anything else on the wire is ignored.
   const name = clean(d.name, 120);
@@ -142,12 +180,26 @@ export default async function handler(req, res) {
   if (!name || !phone || !email) {
     return res.status(400).json({ success: false, error: 'Name, phone and email are required.' });
   }
+  if (phone.replace(/\D/g, '').length < 10) {
+    return res.status(400).json({ success: false, error: 'Enter a mobile number with the area code.' });
+  }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return res.status(400).json({ success: false, error: 'That email address does not look right.' });
   }
 
   const trades = Array.isArray(d.trades) ? d.trades.map((t) => clean(t, 60)).filter(Boolean).slice(0, 60) : [];
   const areas = Array.isArray(d.areas) ? d.areas.map((a) => clean(a, 60)).filter(Boolean).slice(0, 40) : [];
+  const primaryTrade = clean(d.primaryTrade, 60);
+  if (!trades.length) {
+    return res.status(400).json({ success: false, error: 'Pick at least one trade.' });
+  }
+  if (!primaryTrade) {
+    return res.status(400).json({ success: false, error: 'Pick your main trade.' });
+  }
+  if (!areas.length) {
+    return res.status(400).json({ success: false, error: 'Pick at least one county.' });
+  }
+
   const refs = Array.isArray(d.references)
     ? d.references.map((r) => ({ name: clean(r && r.name, 120), phone: clean(r && r.phone, 40) })).slice(0, 4)
     : [];
@@ -159,18 +211,18 @@ export default async function handler(req, res) {
   // SMS consent. The contractors table has a fixed 41 column shape, so it rides as
   // the last line of notes instead of a column of its own. "no" unless they ticked it.
   const smsConsent = d.smsConsent === 'yes' ? 'yes' : 'no';
-  const notesTyped = clean(d.notes, 2000);
+  const notesTyped = cleanLines(d.notes, 2000);
   const notes = (notesTyped ? notesTyped + '\n\n' : '') + 'SMS consent: ' + smsConsent;
 
   const id = 'ctr_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-  const alertSubject = 'Website contractor intake: ' + name + ', ' + (clean(d.primaryTrade, 60) || 'trade not given');
-  const alertCtx = { id, name, phone, email, trades, areas, refs, smsConsent };
+  const alertSubject = 'Website contractor intake: ' + name + ', ' + primaryTrade;
+  const alertCtx = { id, name, phone, email, trades, areas, refs, smsConsent, primaryTrade };
 
   try {
     await pipeline([
       {
         sql: 'INSERT INTO submissions (contractor_id, user_agent, payload) VALUES (?, ?, ?)',
-        args: [text(id), text(clean(req.headers['user-agent'], 400)), json(d)],
+        args: [text(id), text(clean(req.headers['user-agent'], 400)), text(raw)],
       },
       {
         sql: `INSERT INTO contractors (
@@ -184,7 +236,7 @@ export default async function handler(req, res) {
           text(id), text('new'), text(clean(d.source, 120)),
           text(name), text(clean(d.company, 160)), text(phone), int(d.smsCapable),
           text(email), text(clean(d.contactPref, 20)),
-          json(trades), text(clean(d.primaryTrade, 60)),
+          json(trades), text(primaryTrade),
           text(clean(d.years, 40)), text(clean(d.crew, 40)), text(clean(d.capacity, 10)),
           int(d.licensed), text(clean(d.licenseType, 40)),
           text(clean(lic.kind, 120)), text(clean(lic.number, 80)), text(clean(lic.state, 10)), text(clean(lic.expires, 20)),
@@ -210,7 +262,7 @@ export default async function handler(req, res) {
       await pipeline([
         {
           sql: 'INSERT INTO submissions (contractor_id, user_agent, payload) VALUES (?, ?, ?)',
-          args: [text(id + '_partial'), text(clean(req.headers['user-agent'], 400)), json(d)],
+          args: [text(id + '_partial'), text(clean(req.headers['user-agent'], 400)), text(raw)],
         },
       ]);
     } catch (e2) {

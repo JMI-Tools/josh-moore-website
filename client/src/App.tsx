@@ -19,13 +19,13 @@ import Contractors from "./pages/Contractors";
 import MediaKit from "./pages/MediaKit";
 
 /**
- * The route LIST lives in shared/seo-routes.ts â€” it is the single source of truth for
+ * The route LIST lives in shared/seo-routes.ts. It is the single source of truth for
  * routing, per-route <head> metadata, the prerendered HTML files and sitemap.xml.
  *
  * This map only binds each path to its component. Because it is typed
  * `Record<RoutePath, ...>`, TypeScript fails the build if a route is added to
  * SITE_ROUTES without a page here, or a page is added here without a SITE_ROUTES
- * entry â€” the "forgot to update the other file" hard-404 cannot happen.
+ * entry, the "forgot to update the other file" hard-404 cannot happen.
  *
  * "/404" is deliberately NOT in the table: it must not be prerendered, indexed or
  * listed in the sitemap, so it is wired up by hand below.

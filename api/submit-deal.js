@@ -8,8 +8,10 @@
 //   3. Josh's inbox, through notifyJosh.
 //
 // The GHL contact is the one write that has to succeed. If it fails the
-// visitor gets a 502 and can try again. Everything after it logs and carries
-// on, so a Supabase or email hiccup never turns a real lead into an error.
+// visitor gets a 502 and can try again. The opportunity, the note, the
+// Supabase row and the email then run together; each logs its own failure and
+// carries on, so a Supabase or email hiccup never turns a real lead into an
+// error and a slow upstream cannot run the function past its time limit.
 
 import { notifyJosh, clean, looksLikeBot } from "./_lib/notify.js";
 
@@ -19,7 +21,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const GHL_API = "https://services.leadconnectorhq.com";
-const UPSTREAM_TIMEOUT_MS = 15_000;
+const UPSTREAM_TIMEOUT_MS = 8_000;
+const SOURCE = "Website Deal Submission";
 
 // Pipeline and stage IDs per asset class
 const GHL_PIPELINES = {
@@ -115,23 +118,50 @@ function sanitize(body) {
   return out;
 }
 
+// A number with an optional thousands/millions word after it. The number must
+// stand on its own: not glued to letters on either side, so "1e5" is not 1 or 5.
+const NUMBER_SRC = "(?<![A-Za-z0-9.])(\\d[\\d,]*(?:\\.\\d+)?|\\.\\d+)\\s*(k|m|mm|mil|million|thousand)?(?![A-Za-z0-9])";
+const NUMBER_RE = new RegExp(NUMBER_SRC, "i");
+// A plain amount is a number, an optional dollar sign and an optional unit
+// word, and nothing else: "$120,000", "78k", "$1.5 million", "2.4MM".
+const PLAIN_AMOUNT_RE = new RegExp("^\\s*\\$?\\s*" + NUMBER_SRC + "\\s*$", "i");
+
+function expandUnit(n, unit) {
+  const u = (unit || "").toLowerCase();
+  if (u === "k" || u === "thousand") return n * 1_000;
+  if (u) return n * 1_000_000;
+  return n;
+}
+
 /**
- * The one number parser. Finds the first number in the text and strips
- * everything except digits and a decimal point, so "$120,000" is 120000,
- * "1,400 sqft" is 1400, "3.5% / I don't know" is 3.5 and "I don't know" is
- * null. A trailing k or m ("$78k", "1.2M") is expanded.
+ * The one number parser. Finds the first standalone number in the text, so
+ * "$120,000" is 120000, "1,400 sqft" is 1400, "38 lots" is 38 and "I don't
+ * know" is null. A unit word after the number ("$78k", "1.2M", "2.4MM",
+ * "$1.5 million") is expanded. Anything with a percent sign is null: a
+ * percentage is never the count or the dollar figure a numeric column holds.
  */
 function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value !== "string") return null;
-  const match = value.match(/(\d[\d,]*(?:\.\d+)?|\.\d+)\s*([kKmM])?(?![A-Za-z])/);
+  if (typeof value !== "string" || value.includes("%")) return null;
+  const match = value.match(NUMBER_RE);
   if (!match) return null;
   const n = parseFloat(match[1].replace(/[^0-9.]/g, ""));
-  if (!Number.isFinite(n)) return null;
-  const unit = (match[2] || "").toLowerCase();
-  if (unit === "k") return n * 1_000;
-  if (unit === "m") return n * 1_000_000;
-  return n;
+  return Number.isFinite(n) ? expandUnit(n, match[2]) : null;
+}
+
+/**
+ * Money for a numeric column. Only a plain amount becomes a number; text
+ * around it ("$2,500 flat", "50% of spread", "negotiable", "$1,100 / I don't
+ * know") returns null so the words are kept in the note instead of a number
+ * that means something else.
+ */
+function moneyValue(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const match = value.match(PLAIN_AMOUNT_RE);
+  if (!match) return null;
+  const n = parseFloat(match[1].replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? expandUnit(n, match[2]) : null;
 }
 
 function toInt(value) {
@@ -144,26 +174,18 @@ function toYear(value) {
   return n !== null && n >= 1600 && n <= 2100 ? n : null;
 }
 
-/** Whole-number count, or null when the visitor answered with a percentage. */
-function toCount(value) {
-  if (typeof value === "string" && value.includes("%")) return null;
-  return toInt(value);
-}
-
 function digitsOf(value) {
   return typeof value === "string" ? value.replace(/\D/g, "") : "";
 }
 
 /**
- * Money for the note. A plain number prints as "$120,000" plus any unit
+ * Money for the note. A plain amount prints as "$120,000" plus any unit
  * suffix. Text the visitor wrote around it ("negotiable", "I don't know",
  * "50% of spread") is kept as written so meaning is never lost.
  */
 function fmtMoney(value, suffix = "") {
-  const n = toNumber(value);
-  if (n === null) return typeof value === "string" ? value : null;
-  const hasWords = typeof value === "string" && /[a-jln-zA-JLN-Z\/]/.test(value);
-  if (hasWords) return value;
+  const n = moneyValue(value);
+  if (n === null) return typeof value === "string" ? value : String(value);
   return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}${suffix}`;
 }
 
@@ -338,6 +360,10 @@ function labelFor(key, propertyType) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+// Occupancy questions the form asks as a percentage. A bare number in one of
+// these prints with a percent sign so "85" does not read like a unit count.
+const PERCENT_KEYS = new Set(["occupancyStatus", "peakOccupancy", "yearRoundOccupancy"]);
+
 function formatValue(key, value, propertyType) {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -345,6 +371,7 @@ function formatValue(key, value, propertyType) {
   const text = String(value);
   const coded = VALUES[key];
   if (coded && coded[text]) return coded[text];
+  if (PERCENT_KEYS.has(key) && /^\d+(\.\d+)?$/.test(text)) return `${text}%`;
   if (key in MONEY_SUFFIX) {
     const suffix = MONEY_SUFFIX[key];
     return fmtMoney(text, typeof suffix === "string" ? suffix : suffix[propertyType] || "");
@@ -506,6 +533,8 @@ function buildDealTags(data) {
       tags.push("deal-source-bird-dog");
       break;
     default:
+      // A non-owner who skipped the optional role tiles. Never assume wholesaler.
+      if (!data.submitterRole) tags.push("deal-source-unknown");
       break;
   }
   if (data.smsConsent === true) tags.push("sms-consent");
@@ -547,7 +576,7 @@ async function upsertContact(data, note) {
     lastName: data.lastName || "",
     email: data.email,
     phone: data.phone,
-    source: "Website Deal Submission",
+    source: SOURCE,
     tags: buildDealTags(data),
     customFields: [{ key: "opportunity_notes", field_value: note }],
   });
@@ -567,21 +596,21 @@ async function createOpportunity(contactId, data, pipeline) {
     contactId,
     name: `${fullName(data) || data.email} - ${data.propertyAddress}`,
     status: "open",
+    source: SOURCE,
     monetaryValue: toNumber(data.askingPrice) || 0,
   });
   return result ? result.opportunity?.id || result.id || null : null;
 }
 
 async function addContactNote(contactId, note) {
-  const result = await ghlPost(`/contacts/${contactId}/notes`, { body: note });
+  const result = await ghlPost(`/contacts/${encodeURIComponent(contactId)}/notes`, { body: note });
   return result !== null;
 }
 
 // ── Supabase ─────────────────────────────────────────────────────────────────
 
-// Form keys that have a column of their own (or ride in financing_terms) in
-// each table. Anything else the visitor answered is appended to
-// additional_notes so the row is as complete as the GHL note.
+// Form keys stored as text (or riding in financing_terms) in every table.
+// Numeric columns are declared below with their parsers.
 const COMMON_COLUMN_KEYS = [
   "propertyType",
   "submitterRole",
@@ -593,34 +622,67 @@ const COMMON_COLUMN_KEYS = [
   "isOwner",
   "propertyAddress",
   "condition",
-  "assignmentFee",
   "additionalNotes",
   "howHeard",
   "consent",
-  "askingPrice",
   ...FINANCING_KEYS,
 ];
 
-const TABLE_COLUMN_KEYS = {
-  sfr_deals: ["bedrooms", "bathrooms", "squareFootage", "yearBuilt", "arv", "estimatedRepairs", "occupancyStatus", "motivation"],
-  multifamily_deals: ["unitCount", "squareFootage", "yearBuilt", "currentNoi", "grossRents", "occupancyStatus"],
-  mhp_deals: ["totalPads", "occupiedPads", "parkOwnedHomes", "waterSewerType", "grossRents", "currentNoi", "lotRent"],
-  rv_park_deals: ["totalPads", "siteTypes", "amenities", "grossRents", "currentNoi"],
+// Numeric columns: [form key, column, parser]. When the parser returns null
+// for an answer the visitor typed ("79%", "negotiable", "I don't know"), the
+// column stays null and the answer is appended to additional_notes as written.
+const COMMON_NUMERIC_COLUMNS = [
+  ["askingPrice", "asking_price", moneyValue],
+  ["assignmentFee", "assignment_fee", moneyValue],
+];
+
+const TABLE_NUMERIC_COLUMNS = {
+  sfr_deals: [
+    ["bedrooms", "bedrooms", toInt],
+    ["bathrooms", "bathrooms", toNumber],
+    ["squareFootage", "square_footage", toInt],
+    ["yearBuilt", "year_built", toYear],
+    ["arv", "arv", moneyValue],
+    ["estimatedRepairs", "estimated_repairs", moneyValue],
+  ],
+  multifamily_deals: [
+    ["unitCount", "unit_count", toInt],
+    ["squareFootage", "square_footage", toInt],
+    ["yearBuilt", "year_built", toYear],
+    ["currentNoi", "current_noi", moneyValue],
+    ["grossRents", "gross_rents", moneyValue],
+  ],
+  mhp_deals: [
+    ["totalPads", "total_pads", toInt],
+    ["occupiedPads", "occupied_pads", toInt],
+    ["parkOwnedHomes", "park_owned_homes", toInt],
+    ["grossRents", "gross_rents", moneyValue],
+    ["currentNoi", "current_noi", moneyValue],
+    ["lotRent", "lot_rent", moneyValue],
+  ],
+  rv_park_deals: [
+    ["totalPads", "total_pads", toInt],
+    ["grossRents", "gross_rents", moneyValue],
+    ["currentNoi", "current_noi", moneyValue],
+  ],
 };
+
+// Text and array columns per table, stored as the visitor gave them.
+const TABLE_TEXT_COLUMN_KEYS = {
+  sfr_deals: ["occupancyStatus", "motivation"],
+  multifamily_deals: ["occupancyStatus"],
+  mhp_deals: ["waterSewerType"],
+  rv_park_deals: ["siteTypes", "amenities"],
+};
+
+function listOrNull(value) {
+  return Array.isArray(value) && value.length ? value : null;
+}
 
 function buildSupabaseRecord(data, table) {
   const type = data.propertyType;
   const financingTerms = linesFor(data, FINANCING_KEYS, type).join("; ");
-
-  const columnKeys = new Set([...COMMON_COLUMN_KEYS, ...(TABLE_COLUMN_KEYS[table] || [])]);
-  const extraKeys = Object.keys(data).filter((k) => !columnKeys.has(k));
-  const extraLines = linesFor(data, extraKeys, type);
-  const additionalNotes = [
-    data.additionalNotes || null,
-    extraLines.length ? ["Other answers from the form:", ...extraLines].join("\n") : null,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const numericColumns = [...COMMON_NUMERIC_COLUMNS, ...(TABLE_NUMERIC_COLUMNS[table] || [])];
 
   const record = {
     submitter_role: data.submitterRole || null,
@@ -633,52 +695,50 @@ function buildSupabaseRecord(data, table) {
     property_address: data.propertyAddress,
     condition: data.condition || null,
     financing_terms: financingTerms || null,
-    assignment_fee: toNumber(data.assignmentFee),
-    additional_notes: additionalNotes || null,
     how_heard: data.howHeard || null,
     consent: data.consent === true,
-    asking_price: toNumber(data.askingPrice),
   };
 
   if (table === "sfr_deals") {
     Object.assign(record, {
-      bedrooms: toInt(data.bedrooms),
-      bathrooms: toNumber(data.bathrooms),
-      square_footage: toInt(data.squareFootage),
-      year_built: toYear(data.yearBuilt),
-      arv: toNumber(data.arv),
-      estimated_repairs: toNumber(data.estimatedRepairs),
       occupancy_status: data.occupancyStatus || null,
-      motivation: Array.isArray(data.motivation) && data.motivation.length ? data.motivation : null,
+      motivation: listOrNull(data.motivation),
     });
   } else if (table === "multifamily_deals") {
-    Object.assign(record, {
-      unit_count: toInt(data.unitCount),
-      square_footage: toInt(data.squareFootage),
-      year_built: toYear(data.yearBuilt),
-      current_noi: toNumber(data.currentNoi),
-      gross_rents: toNumber(data.grossRents),
-      occupancy_status: data.occupancyStatus || null,
-    });
+    Object.assign(record, { occupancy_status: data.occupancyStatus || null });
   } else if (table === "mhp_deals") {
-    Object.assign(record, {
-      total_pads: toInt(data.totalPads),
-      occupied_pads: toCount(data.occupiedPads),
-      park_owned_homes: toInt(data.parkOwnedHomes),
-      water_sewer_type: data.waterSewerType || null,
-      gross_rents: toNumber(data.grossRents),
-      current_noi: toNumber(data.currentNoi),
-      lot_rent: toNumber(data.lotRent),
-    });
+    Object.assign(record, { water_sewer_type: data.waterSewerType || null });
   } else if (table === "rv_park_deals") {
     Object.assign(record, {
-      total_pads: toInt(data.totalPads),
-      hookup_types: Array.isArray(data.siteTypes) && data.siteTypes.length ? data.siteTypes : null,
-      amenities: Array.isArray(data.amenities) && data.amenities.length ? data.amenities : null,
-      gross_rents: toNumber(data.grossRents),
-      current_noi: toNumber(data.currentNoi),
+      hookup_types: listOrNull(data.siteTypes),
+      amenities: listOrNull(data.amenities),
     });
   }
+
+  // Numeric columns. Anything typed that did not parse is kept for the notes.
+  const unparsedKeys = [];
+  for (const [key, column, parse] of numericColumns) {
+    const value = parse(data[key]);
+    record[column] = value;
+    if (value === null && typeof data[key] === "string" && data[key] !== "") unparsedKeys.push(key);
+  }
+
+  // Everything without a column, plus the unparsed answers, rides in
+  // additional_notes so the row says as much as the GHL note.
+  const columnKeys = new Set([
+    ...COMMON_COLUMN_KEYS,
+    ...numericColumns.map(([key]) => key),
+    ...(TABLE_TEXT_COLUMN_KEYS[table] || []),
+  ]);
+  const extraKeys = [...Object.keys(data).filter((k) => !columnKeys.has(k)), ...unparsedKeys];
+  const extraLines = linesFor(data, extraKeys, type);
+  record.additional_notes =
+    [
+      data.additionalNotes || null,
+      extraLines.length ? ["Other answers from the form:", ...extraLines].join("\n") : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n") || null;
 
   return record;
 }
@@ -728,14 +788,53 @@ function parseBody(req) {
   return {};
 }
 
+// What the form requires before it lets a visitor past step 3, per asset
+// class. The server asks for exactly the same, so a hand-built payload cannot
+// create a contact and an opportunity with the basics missing.
+const REQUIRED_BY_TYPE = {
+  all: ["propertyAddress", "askingPrice"],
+  sfr: ["bedrooms", "bathrooms", "condition"],
+  multifamily: ["unitCount"],
+  mhp: ["totalPads", "occupiedPads", "waterSewerType", "hasParkOwnedHomes"],
+  rv_park: ["totalPads", "seasonal"],
+};
+
+// Extra answers the form requires from wholesalers, agents and bird dogs.
+const REQUIRED_FROM_NON_OWNERS = {
+  sfr: ["arv", "hasMortgage"],
+  multifamily: [],
+  mhp: ["grossRents"],
+  rv_park: ["grossRents", "hasMortgage"],
+};
+
 function validate(data) {
   const problems = [];
-  if (!PROPERTY_TYPES.includes(data.propertyType)) problems.push("Choose a property type.");
+  const type = data.propertyType;
+  if (!PROPERTY_TYPES.includes(type)) problems.push("Choose a property type.");
+  if (typeof data.isOwner !== "boolean") problems.push("Let me know whether you own the property.");
   if (!data.firstName) problems.push("Enter your name.");
   if (!EMAIL_RE.test(data.email || "")) problems.push("Enter a valid email address.");
   if (digitsOf(data.phone).length < 10) problems.push("Enter a phone number with at least 10 digits.");
-  if (!data.propertyAddress) problems.push("Enter the property address.");
   if (data.consent !== true) problems.push("Confirm the information is accurate.");
+  if (!PROPERTY_TYPES.includes(type)) return problems;
+
+  const required = [...REQUIRED_BY_TYPE.all, ...REQUIRED_BY_TYPE[type]];
+  if (data.isOwner === false) required.push(...REQUIRED_FROM_NON_OWNERS[type]);
+
+  if (type === "multifamily") {
+    const units = toInt(data.unitCount);
+    if (units !== null && units < 2) problems.push("Enter the total number of units (2 or more).");
+    if (units !== null && units >= 5) required.push("occupancyStatus", "grossRents");
+    if (units !== null && units >= 20) required.push("hasMortgage");
+  }
+  if (type === "rv_park") {
+    if (data.seasonal === "seasonal") required.push("seasonOpen", "seasonClose");
+    if (data.seasonal === "yearround") required.push("yearRoundOccupancy");
+  }
+
+  for (const key of required) {
+    if (!data[key]) problems.push(`${labelFor(key, type)} is required.`);
+  }
   return problems;
 }
 
@@ -749,7 +848,10 @@ export default async function handler(req, res) {
     const body = parseBody(req);
 
     if (looksLikeBot(body)) {
-      console.warn("submit-deal: honeypot tripped, submission dropped");
+      // Logged with the email domain only, so drops can be audited without
+      // writing a visitor address to the logs.
+      const domain = typeof body.email === "string" ? body.email.split("@")[1] || "" : "";
+      console.warn(`submit-deal: honeypot tripped, submission dropped (${domain || "no email domain"})`);
       return res.status(200).json({ success: true });
     }
 
@@ -777,21 +879,20 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Opportunity, note, Supabase row and the email. Each logs its own
-    //    failure and none of them can turn the response into an error.
-    const opportunityId = await createOpportunity(contactId, data, pipeline);
+    // 2. Opportunity, note, Supabase row and the email, all at once. Each logs
+    //    its own failure and none of them can turn the response into an error.
+    const [opportunityId, noted] = await Promise.all([
+      createOpportunity(contactId, data, pipeline),
+      addContactNote(contactId, note),
+      insertSupabaseRecord(data, table),
+      notifyJosh({
+        subject: `Website deal: ${TYPE_LABELS[type]} at ${data.propertyAddress}`,
+        text: note,
+        replyTo: data.email,
+      }),
+    ]);
     if (!opportunityId) console.error(`submit-deal: no opportunity created in ${pipeline.name} for contact ${contactId}`);
-
-    const noted = await addContactNote(contactId, note);
     if (!noted) console.error(`submit-deal: note not written for contact ${contactId}`);
-
-    await insertSupabaseRecord(data, table);
-
-    await notifyJosh({
-      subject: `Website deal: ${TYPE_LABELS[type]} at ${data.propertyAddress}`,
-      text: note,
-      replyTo: data.email,
-    });
 
     return res.status(200).json({ success: true, message: "Deal received." });
   } catch (err) {

@@ -7,10 +7,19 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/media-kit", "destination": "/mediakit", "permanent": true },
+    {
+      "source": "/media-kit",
+      "destination": "/mediakit",
+      "permanent": true
+    },
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": "josh-moore-website.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "josh-moore-website.vercel.app"
+        }
+      ],
       "destination": "https://www.itsjoshmoore.com/$1",
       "permanent": true
     }
@@ -18,8 +27,23 @@
   "headers": [
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": ".*\\.vercel\\.app" }],
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "has": [
+        {
+          "type": "host",
+          "value": ".*\\.vercel\\.app"
+        }
+      ],
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
-  ]
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 30
+    }
+  }
 }

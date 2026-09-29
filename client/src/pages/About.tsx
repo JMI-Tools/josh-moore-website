@@ -43,7 +43,7 @@ const values = [
   },
   {
     icon: Award,
-    title: "Proven results",
+    title: "Closed deals",
     description:
       "Years of closed transactions across residential, multifamily, and commercial property in Michigan.",
   },
@@ -60,7 +60,7 @@ const expertise = [
     title: "Property types",
     items: [
       "Single-family homes",
-      "Multifamily (2-20 units)",
+      "Multifamily (2 to 50 units)",
       "Commercial properties",
       "RV parks & mobile home parks",
     ],
@@ -85,7 +85,7 @@ export default function About() {
       <PageHero
         tone="navy"
         eyebrow="About"
-        title="Investor. Operator. Dad."
+        title="Investor. Entrepreneur. Dad."
         lede="Creative real estate investor, problem solver, and deal maker in Michigan. I use creative finance to close deals the usual route walks away from, and I was building toward this long before the first closing."
         actions={
           <>
@@ -164,17 +164,19 @@ export default function About() {
                 the situation into a template.
               </p>
               <p className="font-semibold text-navy">
-                My mission is to find opportunities where others see obstacles, and to solve
-                real problems through creative real estate investing.
+                The job is simple: find the structure that works when the obvious one doesn't,
+                and close.
               </p>
             </div>
-            <Link
-              href="/mediakit"
-              className="mt-8 inline-flex items-center gap-2 text-[15px] font-semibold text-navy underline-offset-4 hover:text-brand-600 hover:underline"
-            >
-              The long version, with the music years and the sneaker years, is in my story and press kit
-              <ArrowUpRight className="size-4 shrink-0" />
-            </Link>
+            <p className="mt-8 text-[15px] leading-relaxed">
+              <Link
+                href="/mediakit"
+                className="font-semibold text-navy underline-offset-4 hover:text-brand-600 hover:underline"
+              >
+                The long version, with the music years and the sneaker years, is in my story and press kit
+                <ArrowUpRight className="ml-1 inline-block size-4 align-[-2px]" aria-hidden="true" />
+              </Link>
+            </p>
           </Reveal>
 
           <Reveal delay={0.1} className="lg:pt-24">
@@ -207,7 +209,7 @@ export default function About() {
           <SectionHeading
             eyebrow="Core values"
             title="The principles behind every deal."
-            lede="The principles that guide every deal I make, whether it is a single house or a fifty-pad park."
+            lede="What I hold to, whether it is a single house or a fifty-pad park."
             align="center"
           />
         </Reveal>

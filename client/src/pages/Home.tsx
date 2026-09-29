@@ -17,7 +17,7 @@ const assetClasses = [
   {
     icon: HomeIcon,
     title: "Single family",
-    description: "2+ bed, 1+ bath houses across West Michigan. Any condition, cash or terms.",
+    description: "2+ bed, 1+ bath houses in West Michigan and the Flint area. Most conditions, cash or terms.",
   },
   {
     icon: Building2,
@@ -27,7 +27,7 @@ const assetClasses = [
   {
     icon: Building,
     title: "Commercial multifamily",
-    description: "5 to 50 units with room to raise rents or fix operations.",
+    description: "10 to 50 units with room to raise rents or fix operations.",
   },
   {
     icon: Tent,

@@ -17,7 +17,7 @@ export interface SeoOptions {
   description: string;
   /**
    * Route path this page canonicalizes to, e.g. "/about".
-   * Pass null (or omit) for pages that must NOT emit a canonical — e.g. 404.
+   * Pass null (or omit) for pages that must NOT emit a canonical , e.g. 404.
    */
   path?: string | null;
   /** When true, emits <meta name="robots" content="noindex, follow">. */
@@ -51,7 +51,7 @@ function removeTags(selector: string): void {
  * Per-route SEO for CLIENT-SIDE NAVIGATION only.
  *
  * The tags that matter for crawlers and link unfurlers are baked into the served
- * HTML at build time by scripts/prerender-seo.ts — every route is its own real file
+ * HTML at build time by scripts/prerender-seo.ts , every route is its own real file
  * with its own title/description/canonical/og:url, so nothing here is load-bearing
  * for a consumer that does not run JavaScript. This hook exists so that a wouter
  * in-app navigation (which never re-fetches HTML) still updates the document head.

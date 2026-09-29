@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ type Option = { value: string; label: string; help?: string };
 type Errors = Record<string, string>;
 
 const STEP_NAMES = ["About you", "Property type", "Deal details", "Final step"];
+const LAST_STEP: Step = 3;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const YES_NO: Option[] = [
@@ -63,20 +64,14 @@ const NEXT_STEPS = [
 // Every control uses the site's field, field-label, field-help, field-error,
 // pill and choice utilities so the deal form matches every other form.
 
-function Mark({ required, optional }: { required?: boolean; optional?: boolean }) {
-  if (required) {
-    return (
-      <span aria-hidden="true" className="ml-1 text-destructive">
-        *
-      </span>
-    );
-  }
-  if (optional) {
-    return (
-      <span className="ml-1.5 font-normal normal-case tracking-normal text-ink-muted">(optional)</span>
-    );
-  }
-  return null;
+/** Required fields get an asterisk after the label. Optional fields get no marker. */
+function Mark({ required }: { required?: boolean }) {
+  if (!required) return null;
+  return (
+    <span aria-hidden="true" className="ml-1 text-destructive">
+      *
+    </span>
+  );
 }
 
 function Hint({ id, help, error }: { id: string; help?: string; error?: string }) {
@@ -107,7 +102,6 @@ type ControlProps = {
   id: string;
   label: string;
   required?: boolean;
-  optional?: boolean;
   help?: string;
   error?: string;
 };
@@ -116,7 +110,6 @@ function TextField({
   id,
   label,
   required,
-  optional,
   help,
   error,
   value,
@@ -137,7 +130,7 @@ function TextField({
     <div>
       <label htmlFor={id} className="field-label">
         {label}
-        <Mark required={required} optional={optional} />
+        <Mark required={required} />
       </label>
       <input
         id={id}
@@ -162,7 +155,6 @@ function SelectField({
   id,
   label,
   required,
-  optional,
   help,
   error,
   value,
@@ -179,7 +171,7 @@ function SelectField({
     <div>
       <label htmlFor={id} className="field-label">
         {label}
-        <Mark required={required} optional={optional} />
+        <Mark required={required} />
       </label>
       <div className="relative">
         <select
@@ -213,7 +205,6 @@ function TextAreaField({
   id,
   label,
   required,
-  optional,
   help,
   error,
   value,
@@ -224,7 +215,7 @@ function TextAreaField({
     <div>
       <label htmlFor={id} className="field-label">
         {label}
-        <Mark required={required} optional={optional} />
+        <Mark required={required} />
       </label>
       <textarea
         id={id}
@@ -248,7 +239,6 @@ function RadioTiles({
   id,
   label,
   required,
-  optional,
   help,
   error,
   value,
@@ -262,10 +252,10 @@ function RadioTiles({
   columns?: "auto" | 2 | 3;
 }) {
   return (
-    <fieldset className="min-w-0" aria-describedby={describedBy(id, help, error)}>
+    <fieldset className="min-w-0">
       <legend className="field-label">
         {label}
-        <Mark required={required} optional={optional} />
+        <Mark required={required} />
       </legend>
       <div
         className={cn(
@@ -283,6 +273,8 @@ function RadioTiles({
               value={o.value}
               checked={value === o.value}
               onChange={() => onChange(o.value)}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={describedBy(id, help, error)}
               className="peer sr-only"
             />
             <span
@@ -307,7 +299,6 @@ function RadioTiles({
 function CheckTiles({
   id,
   label,
-  optional,
   help,
   options,
   selected,
@@ -315,7 +306,6 @@ function CheckTiles({
 }: {
   id: string;
   label: string;
-  optional?: boolean;
   help?: string;
   options: string[];
   selected: string[];
@@ -324,11 +314,8 @@ function CheckTiles({
   const toggle = (v: string) =>
     onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
   return (
-    <fieldset className="min-w-0" aria-describedby={describedBy(id, help)}>
-      <legend className="field-label">
-        {label}
-        <Mark optional={optional} />
-      </legend>
+    <fieldset className="min-w-0">
+      <legend className="field-label">{label}</legend>
       <div className="grid gap-2.5 sm:grid-cols-2">
         {options.map((o) => (
           <label key={o} className="choice">
@@ -338,6 +325,7 @@ function CheckTiles({
               value={o}
               checked={selected.includes(o)}
               onChange={() => toggle(o)}
+              aria-describedby={describedBy(id, help)}
               className="peer sr-only"
             />
             <span
@@ -358,13 +346,11 @@ function CheckTiles({
 /** Multi-select for short options, as pills. */
 function Pills({
   label,
-  optional,
   options,
   selected,
   onChange,
 }: {
   label: string;
-  optional?: boolean;
   options: string[];
   selected: string[];
   onChange: (v: string[]) => void;
@@ -373,10 +359,7 @@ function Pills({
     onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
   return (
     <fieldset className="min-w-0">
-      <legend className="field-label">
-        {label}
-        <Mark optional={optional} />
-      </legend>
+      <legend className="field-label">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map((o) => (
           <button
@@ -453,13 +436,26 @@ function Pair({ children }: { children: ReactNode }) {
   return <div className="grid gap-5 sm:grid-cols-2">{children}</div>;
 }
 
-function StepHeading({ step, title, lede }: { step: Step; title: ReactNode; lede?: string }) {
+/** The heading takes focus on every step change so keyboard and screen reader users land on it. */
+function StepHeading({
+  step,
+  title,
+  lede,
+  headingRef,
+}: {
+  step: Step;
+  title: ReactNode;
+  lede?: string;
+  headingRef: React.RefObject<HTMLHeadingElement | null>;
+}) {
   return (
     <div className="mb-8 border-b border-line pb-6">
       <p className="eyebrow eyebrow-line mb-3">
         Step {step + 1} of {STEP_NAMES.length}
       </p>
-      <h2 className="text-2xl text-navy md:text-3xl">{title}</h2>
+      <h2 ref={headingRef} tabIndex={-1} className="text-2xl text-navy outline-none md:text-3xl">
+        {title}
+      </h2>
       {lede && <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{lede}</p>}
     </div>
   );
@@ -555,11 +551,44 @@ export default function SubmitDeal() {
   useRouteSeo("/submit-deal");
 
   const topRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const mounted = useRef(false);
+  // Set by next() and submit() when validation fails, read by the effect below
+  // so focus moves to the first invalid control once its error has rendered.
+  const focusFirstInvalid = useRef(false);
   const [step, setStep] = useState<Step>(0);
   const [errors, setErrors] = useState<Errors>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  // On every step change, bring the form back into view and hand focus to the
+  // new heading (or the thank-you heading) so keyboard and screen reader users
+  // land in the right place instead of on <body>.
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    if (submitted) window.scrollTo({ top: 0, behavior: "smooth" });
+    else topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    headingRef.current?.focus({ preventScroll: true });
+  }, [step, submitted]);
+
+  // After Next or Submit fails, focus the first invalid control. Radio and
+  // checkbox groups have no element with the error key as id, so fall back to
+  // the first input in the group by name.
+  useEffect(() => {
+    if (!focusFirstInvalid.current) return;
+    focusFirstInvalid.current = false;
+    const key = Object.keys(errors)[0];
+    if (!key) return;
+    const el =
+      document.getElementById(key) ?? document.querySelector<HTMLElement>('input[name="' + key + '"]');
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    (el.closest("label") ?? el).scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [errors]);
 
   // Bot checks. The honeypot stays empty for people; started_at lets the
   // server drop anything posted within a few seconds of the page loading.
@@ -778,23 +807,20 @@ export default function SubmitDeal() {
     return e;
   }
 
-  function scrollToTop() {
-    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   function next() {
     const e = validateStep(step);
     setErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) {
+      focusFirstInvalid.current = true;
+      return;
+    }
     setStep((step + 1) as Step);
-    scrollToTop();
   }
 
   function back() {
     setErrors({});
     setSubmitError("");
     setStep((step - 1) as Step);
-    scrollToTop();
   }
 
   function buildPayload(): Record<string, unknown> {
@@ -811,7 +837,7 @@ export default function SubmitDeal() {
 
     const payload: Record<string, unknown> = {
       propertyType: propertyTypeMap[asset] || asset,
-      submitterRole: isOwner === "yes" ? "owner" : role || "wholesaler",
+      submitterRole: isOwner === "yes" ? "owner" : role,
       isOwner: isOwner === "yes",
       firstName,
       lastName,
@@ -826,7 +852,23 @@ export default function SubmitDeal() {
       started_at: startedAt,
     };
 
+    // Sub-answers only travel when the question that reveals them still
+    // applies, mirroring the Subsection show flags in the markup. A visitor who
+    // answered "yes" to a mortgage, typed a balance, then switched to "no"
+    // should not send the balance.
+    const when = (show: boolean, value: string) => (show ? value : "");
+    const whenList = (show: boolean, value: string[]) => (show ? value : []);
+
+    // Referral terms only apply to wholesalers, agents and bird dogs.
+    Object.assign(payload, {
+      assignmentFee: when(isWholesaler, referralFee),
+      dealStatus: when(isWholesaler, dealStatus),
+    });
+
     if (asset === "sfh") {
+      const needsRepairs = ["moderate", "full", "tear"].includes(sfhCond);
+      const tenant = sfhOcc === "tenant";
+      const mortgage = sfhMort === "yes";
       Object.assign(payload, {
         propertyAddress: sfhAddr,
         askingPrice: sfhPrice,
@@ -836,38 +878,34 @@ export default function SubmitDeal() {
         squareFootage: sfhSqft,
         yearBuilt: sfhYear,
         condition: sfhCond,
-        estimatedRepairs: sfhRepairCost,
-        repairDescription: sfhRepairDesc,
+        estimatedRepairs: when(needsRepairs, sfhRepairCost),
+        repairDescription: when(needsRepairs, sfhRepairDesc),
         occupancyStatus: sfhOcc,
-        currentRent: sfhRent,
-        hasLease: sfhLease,
-        leaseExpiry: sfhLeaseExp,
+        currentRent: when(tenant, sfhRent),
+        hasLease: when(tenant, sfhLease),
+        leaseExpiry: when(tenant && sfhLease === "fixed", sfhLeaseExp),
         hasMortgage: sfhMort,
-        mortgageBalance: sfhMortBal,
-        mortgageRate: sfhMortRate,
-        mortgagePayment: sfhMortPmt,
+        mortgageBalance: when(mortgage, sfhMortBal),
+        mortgageRate: when(mortgage, sfhMortRate),
+        mortgagePayment: when(mortgage, sfhMortPmt),
         creativeFinancing: sfhCf,
-        creativeFinancingOptions: sfhCfOptions,
+        creativeFinancingOptions: whenList(["yes", "unsure"].includes(sfhCf), sfhCfOptions),
         motivation: sfhMotivation,
-        assignmentFee: referralFee,
-        dealStatus,
       });
     } else if (asset === "mf") {
       Object.assign(payload, {
         propertyAddress: mfAddr,
         askingPrice: mfPrice,
         unitCount: mfUnits,
-        assignmentFee: referralFee,
-        dealStatus,
         ...(mfIs24
           ? {
               occupancyStatus: mf24Occ,
               grossRents: mf24Rents,
               condition: mf24Cond,
               hasMortgage: mf24Mort,
-              mortgageBalance: mf24MortBal,
-              mortgageRate: mf24MortRate,
-              assumable: mf24Assume,
+              mortgageBalance: when(mf24Mort === "yes", mf24MortBal),
+              mortgageRate: when(mf24Mort === "yes", mf24MortRate),
+              assumable: when(mf24Mort === "yes", mf24Assume),
               creativeFinancing: mf24Cf,
             }
           : mfIs5
@@ -876,9 +914,9 @@ export default function SubmitDeal() {
                 grossRents: mf5Rents,
                 currentNoi: mf5Noi,
                 hasMortgage: mf5Mort,
-                mortgageBalance: mf5MortBal,
-                mortgageRate: mf5MortRate,
-                assumable: mf5Assume,
+                mortgageBalance: when(mf5Mort === "yes", mf5MortBal),
+                mortgageRate: when(mf5Mort === "yes", mf5MortRate),
+                assumable: when(mf5Mort === "yes", mf5Assume),
                 yearBuilt: mf5Year,
                 condition: mf5Cond,
                 t12Available: mf5T12,
@@ -887,9 +925,9 @@ export default function SubmitDeal() {
                 occupancyStatus: mf20Occ,
                 grossRents: mf20Rents,
                 hasMortgage: mf20Mort,
-                mortgageBalance: mf20MortBal,
-                mortgageRate: mf20MortRate,
-                assumable: mf20Assume,
+                mortgageBalance: when(mf20Mort === "yes", mf20MortBal),
+                mortgageRate: when(mf20Mort === "yes", mf20MortRate),
+                assumable: when(mf20Mort === "yes", mf20Assume),
                 currentNoi: mf20Noi,
                 capRate: mf20Cap,
                 t12Available: mf20T12,
@@ -897,6 +935,8 @@ export default function SubmitDeal() {
               }),
       });
     } else if (asset === "mhp") {
+      const parkOwned = ["poh", "mixed"].includes(mhpPoh);
+      const mortgage = mhpMort === "yes";
       Object.assign(payload, {
         propertyAddress: mhpAddr,
         askingPrice: mhpPrice,
@@ -904,47 +944,46 @@ export default function SubmitDeal() {
         occupiedPads: mhpOcc,
         waterSewerType: mhpWater,
         hasParkOwnedHomes: mhpPoh,
-        parkOwnedHomes: mhpPohUnits,
-        parkOwnedCondition: mhpPohCond,
+        parkOwnedHomes: when(parkOwned, mhpPohUnits),
+        parkOwnedCondition: when(parkOwned, mhpPohCond),
         grossRents: mhpInc,
         lotRent: mhpLotRent,
         infrastructureIssues: mhpInfra,
         hasMortgage: mhpMort,
-        mortgageBalance: mhpMortBal,
-        mortgageRate: mhpMortRate,
-        assumable: mhpAssume,
+        mortgageBalance: when(mortgage, mhpMortBal),
+        mortgageRate: when(mortgage, mhpMortRate),
+        assumable: when(mortgage, mhpAssume),
         violations: mhpViol,
-        violationsDesc: mhpViolDesc,
+        violationsDesc: when(mhpViol === "yes", mhpViolDesc),
         environmentalIssues: mhpEnv,
-        environmentalDesc: mhpEnvDesc,
+        environmentalDesc: when(mhpEnv === "yes", mhpEnvDesc),
         sellerFinancing: mhpSf,
-        assignmentFee: referralFee,
-        dealStatus,
       });
     } else if (asset === "rv") {
+      const seasonal = rvSeason === "seasonal";
+      const yearRound = rvSeason === "yearround";
+      const mortgage = rvMort === "yes";
       Object.assign(payload, {
         propertyAddress: rvAddr,
         askingPrice: rvPrice,
         totalPads: rvSites,
         seasonal: rvSeason,
-        seasonOpen: rvSeasonOpen,
-        seasonClose: rvSeasonClose,
-        peakOccupancy: rvPeakOcc,
-        yearRoundOccupancy: rvYrOcc,
-        longTermTenants: rvLt,
-        longTermCount: rvLtCount,
+        seasonOpen: when(seasonal, rvSeasonOpen),
+        seasonClose: when(seasonal, rvSeasonClose),
+        peakOccupancy: when(seasonal, rvPeakOcc),
+        yearRoundOccupancy: when(yearRound, rvYrOcc),
+        longTermTenants: when(yearRound, rvLt),
+        longTermCount: when(yearRound && rvLt === "yes", rvLtCount),
         siteTypes: rvSiteTypes,
         grossRents: rvRev,
         managementType: rvMgmt,
         bookingPlatform: rvBooking,
         amenities: rvAmenities,
         hasMortgage: rvMort,
-        mortgageBalance: rvMortBal,
-        mortgageRate: rvMortRate,
-        assumable: rvAssume,
+        mortgageBalance: when(mortgage, rvMortBal),
+        mortgageRate: when(mortgage, rvMortRate),
+        assumable: when(mortgage, rvAssume),
         sellerFinancing: rvSf,
-        assignmentFee: referralFee,
-        dealStatus,
       });
     }
 
@@ -952,9 +991,12 @@ export default function SubmitDeal() {
   }
 
   async function submit() {
-    const e = validateStep(3);
+    const e = validateStep(LAST_STEP);
     setErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) {
+      focusFirstInvalid.current = true;
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError("");
@@ -973,7 +1015,6 @@ export default function SubmitDeal() {
         );
       }
       setSubmitted(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong sending your deal. Please try again.");
     } finally {
@@ -984,8 +1025,22 @@ export default function SubmitDeal() {
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
-    if (step < 3) next();
+    if (step < LAST_STEP) next();
     else void submit();
+  }
+
+  // On the final step, Enter only sends the form from the Submit button.
+  // Chrome and Edge treat Enter on a focused checkbox, radio or text input as
+  // implicit submission, which would send the deal from the consent boxes or
+  // the referral fee field. Textareas, links, selects and buttons keep Enter.
+  function onKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
+    if (event.key !== "Enter" || step !== LAST_STEP) return;
+    const target = event.target as HTMLElement;
+    const tag = target.tagName;
+    const type = (target as HTMLInputElement).type;
+    if (tag === "TEXTAREA" || tag === "A" || tag === "SELECT" || tag === "BUTTON") return;
+    if (type === "submit" || type === "button") return;
+    event.preventDefault();
   }
 
   if (submitted) {
@@ -997,7 +1052,9 @@ export default function SubmitDeal() {
               <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-navy text-white">
                 <Check className="size-8" strokeWidth={2.5} />
               </span>
-              <h1 className="display-md mt-7 text-navy">Deal received.</h1>
+              <h1 ref={headingRef} tabIndex={-1} className="display-md mt-7 text-navy outline-none">
+                Deal received.
+              </h1>
               <p className="mt-4 text-lg leading-relaxed text-ink-soft">
                 I review every submission and will reach out within 24 to 48 hours if it's a fit.
                 Thanks for sending it over.
@@ -1039,16 +1096,24 @@ export default function SubmitDeal() {
           <Progress step={step} />
 
           <Reveal delay={0.05}>
-            <form noValidate onSubmit={onSubmit} className="surface relative mt-6 p-5 sm:p-8 md:p-10">
-              {/* Honeypot. Off screen, out of the tab order, and left empty by people. */}
+            <form
+              noValidate
+              onSubmit={onSubmit}
+              onKeyDown={onKeyDown}
+              className="surface relative mt-6 p-5 sm:p-8 md:p-10"
+            >
+              {/* Honeypot. Off screen, out of the tab order, hidden from assistive tech and left
+                  empty by people. The DOM name carries no autofill meaning so Chrome never fills
+                  it; the payload still sends it as company_website for the server's bot check. */}
               <div aria-hidden="true" className="absolute left-[-9999px] top-0 h-px w-px overflow-hidden">
-                <label htmlFor="company_website">Company website</label>
+                <span className="sr-only">Leave this blank</span>
                 <input
-                  id="company_website"
-                  name="company_website"
+                  id="ref_code_2"
+                  name="ref_code_2"
                   type="text"
                   tabIndex={-1}
                   autoComplete="off"
+                  aria-hidden="true"
                   value={honeypot}
                   onChange={(e) => setHoneypot(e.target.value)}
                 />
@@ -1057,7 +1122,7 @@ export default function SubmitDeal() {
               {/* Step 1: about you */}
               {step === 0 && (
                 <>
-                  <StepHeading step={0} title="About you" lede="Who I'm talking to and the best way to reach you." />
+                  <StepHeading headingRef={headingRef} step={0} title="About you" lede="Who I'm talking to and the best way to reach you." />
                   <div className="space-y-6">
                     <RadioTiles
                       id="isOwner"
@@ -1077,7 +1142,6 @@ export default function SubmitDeal() {
                       <RadioTiles
                         id="role"
                         label="Which fits best?"
-                        optional
                         columns={2}
                         value={role}
                         onChange={setRole}
@@ -1133,7 +1197,6 @@ export default function SubmitDeal() {
                     <RadioTiles
                       id="contactPref"
                       label="Preferred contact method"
-                      optional
                       columns={3}
                       value={contactPref}
                       onChange={setContactPref}
@@ -1152,11 +1215,12 @@ export default function SubmitDeal() {
               {step === 1 && (
                 <>
                   <StepHeading
+                    headingRef={headingRef}
                     step={1}
                     title="Property type"
                     lede="Pick the one that fits best. If it's in between, pick the closest and explain in the notes at the end."
                   />
-                  <fieldset className="min-w-0" aria-describedby={errors.asset ? "asset-error" : undefined}>
+                  <fieldset className="min-w-0">
                     <legend className="sr-only">Property type</legend>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {PROPERTY_TYPES.map((t) => {
@@ -1172,6 +1236,8 @@ export default function SubmitDeal() {
                                 setAsset(t.value);
                                 clearErr("asset");
                               }}
+                              aria-invalid={errors.asset ? true : undefined}
+                              aria-describedby={errors.asset ? "asset-error" : undefined}
                               className="peer sr-only"
                             />
                             <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-navy text-white peer-focus-visible:ring-4 peer-focus-visible:ring-brand/30">
@@ -1199,6 +1265,7 @@ export default function SubmitDeal() {
                   {asset === "sfh" && (
                     <>
                       <StepHeading
+                        headingRef={headingRef}
                         step={2}
                         title="Single family details"
                         lede="The basics first, then condition, occupancy and financing. Skip what you don't know."
@@ -1230,7 +1297,6 @@ export default function SubmitDeal() {
                             id="sfhArv"
                             label="Estimated ARV"
                             required={isWholesaler}
-                            optional={!isWholesaler}
                             inputMode="decimal"
                             placeholder="$185,000"
                             help="What's it worth fully fixed up?"
@@ -1265,7 +1331,6 @@ export default function SubmitDeal() {
                           <TextField
                             id="sfhSqft"
                             label="Square footage"
-                            optional
                             placeholder="1,400 sqft / I don't know"
                             value={sfhSqft}
                             onChange={setSfhSqft}
@@ -1273,7 +1338,6 @@ export default function SubmitDeal() {
                           <TextField
                             id="sfhYear"
                             label="Year built"
-                            optional
                             placeholder="1978 / I don't know"
                             value={sfhYear}
                             onChange={setSfhYear}
@@ -1300,7 +1364,6 @@ export default function SubmitDeal() {
                           <TextField
                             id="sfhRepairCost"
                             label="Estimated repair cost"
-                            optional
                             inputMode="decimal"
                             placeholder="$45,000 / I don't know yet"
                             value={sfhRepairCost}
@@ -1309,7 +1372,6 @@ export default function SubmitDeal() {
                           <TextAreaField
                             id="sfhRepairDesc"
                             label="Describe the repairs"
-                            optional
                             placeholder="Roof, HVAC, kitchen and bath gut..."
                             value={sfhRepairDesc}
                             onChange={setSfhRepairDesc}
@@ -1321,7 +1383,6 @@ export default function SubmitDeal() {
                         <RadioTiles
                           id="sfhOcc"
                           label="Occupancy status"
-                          optional
                           value={sfhOcc}
                           onChange={setSfhOcc}
                           options={[
@@ -1337,7 +1398,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="sfhRent"
                               label="Monthly rent"
-                              optional
                               inputMode="decimal"
                               placeholder="$1,100 / I don't know"
                               value={sfhRent}
@@ -1346,7 +1406,6 @@ export default function SubmitDeal() {
                             <SelectField
                               id="sfhLease"
                               label="Lease status"
-                              optional
                               placeholder="Select or skip"
                               value={sfhLease}
                               onChange={setSfhLease}
@@ -1361,7 +1420,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="sfhLeaseExp"
                               label="Lease expiration"
-                              optional
                               type="date"
                               value={sfhLeaseExp}
                               onChange={setSfhLeaseExp}
@@ -1375,7 +1433,6 @@ export default function SubmitDeal() {
                           id="sfhMort"
                           label="Existing mortgage?"
                           required={isWholesaler}
-                          optional={!isWholesaler}
                           columns={3}
                           value={sfhMort}
                           onChange={bind(setSfhMort, "sfhMort")}
@@ -1388,7 +1445,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="sfhMortBal"
                               label="Approximate balance"
-                              optional
                               inputMode="decimal"
                               placeholder="$78,000 / I don't know"
                               value={sfhMortBal}
@@ -1397,7 +1453,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="sfhMortRate"
                               label="Interest rate"
-                              optional
                               inputMode="decimal"
                               placeholder="3.5% / I don't know"
                               value={sfhMortRate}
@@ -1407,7 +1462,6 @@ export default function SubmitDeal() {
                           <TextField
                             id="sfhMortPmt"
                             label="Monthly payment"
-                            optional
                             inputMode="decimal"
                             placeholder="$610 / I don't know"
                             value={sfhMortPmt}
@@ -1418,7 +1472,6 @@ export default function SubmitDeal() {
                         <RadioTiles
                           id="sfhCf"
                           label="Open to creative financing?"
-                          optional
                           columns={3}
                           value={sfhCf}
                           onChange={setSfhCf}
@@ -1429,11 +1482,10 @@ export default function SubmitDeal() {
                           <CheckTiles
                             id="sfhCfOptions"
                             label="Check all that apply"
-                            optional
                             options={[
-                              "Subject-To (buyer takes over existing mortgage)",
-                              "Seller Financing (you hold the note)",
-                              "Lease Option",
+                              "Subject-to (buyer takes over existing mortgage)",
+                              "Seller financing (you hold the note)",
+                              "Lease option",
                               "Other",
                             ]}
                             selected={sfhCfOptions}
@@ -1445,18 +1497,17 @@ export default function SubmitDeal() {
 
                         <Pills
                           label="Seller motivation, pick all that apply"
-                          optional
                           options={[
-                            "Divorce / Separation",
-                            "Probate / Estate",
-                            "Financial Hardship",
+                            "Divorce or separation",
+                            "Probate or estate",
+                            "Financial hardship",
                             "Relocating",
-                            "Tired Landlord",
+                            "Tired landlord",
                             "Downsizing",
-                            "Pre-Foreclosure",
-                            "Code Violations",
-                            "Health / Life Change",
-                            "Just Want to Sell Fast",
+                            "Pre-foreclosure",
+                            "Code violations",
+                            "Health or life change",
+                            "Just want to sell fast",
                           ]}
                           selected={sfhMotivation}
                           onChange={setSfhMotivation}
@@ -1468,6 +1519,7 @@ export default function SubmitDeal() {
                   {asset === "mf" && (
                     <>
                       <StepHeading
+                        headingRef={headingRef}
                         step={2}
                         title="Multifamily details"
                         lede="Enter the unit count and the right questions for that size will appear."
@@ -1512,7 +1564,6 @@ export default function SubmitDeal() {
                           <RadioTiles
                             id="mf24Occ"
                             label="Occupancy"
-                            optional
                             value={mf24Occ}
                             onChange={setMf24Occ}
                             options={[
@@ -1525,7 +1576,6 @@ export default function SubmitDeal() {
                           <TextField
                             id="mf24Rents"
                             label="Gross monthly rents"
-                            optional
                             inputMode="decimal"
                             placeholder="$3,200 / I don't know"
                             value={mf24Rents}
@@ -1534,7 +1584,6 @@ export default function SubmitDeal() {
                           <SelectField
                             id="mf24Cond"
                             label="Property condition"
-                            optional
                             placeholder="Select or skip"
                             value={mf24Cond}
                             onChange={setMf24Cond}
@@ -1549,7 +1598,6 @@ export default function SubmitDeal() {
                           <RadioTiles
                             id="mf24Mort"
                             label="Existing mortgage?"
-                            optional
                             columns={3}
                             value={mf24Mort}
                             onChange={setMf24Mort}
@@ -1561,7 +1609,6 @@ export default function SubmitDeal() {
                                 <TextField
                                   id="mf24MortBal"
                                   label="Balance"
-                                  optional
                                   inputMode="decimal"
                                   placeholder="$320,000 / I don't know"
                                   value={mf24MortBal}
@@ -1570,7 +1617,6 @@ export default function SubmitDeal() {
                                 <TextField
                                   id="mf24MortRate"
                                   label="Rate"
-                                  optional
                                   inputMode="decimal"
                                   placeholder="5% / I don't know"
                                   value={mf24MortRate}
@@ -1580,7 +1626,6 @@ export default function SubmitDeal() {
                               <RadioTiles
                                 id="mf24Assume"
                                 label="Assumable?"
-                                optional
                                 columns={3}
                                 value={mf24Assume}
                                 onChange={setMf24Assume}
@@ -1591,7 +1636,6 @@ export default function SubmitDeal() {
                           <RadioTiles
                             id="mf24Cf"
                             label="Open to creative finance?"
-                            optional
                             columns={3}
                             value={mf24Cf}
                             onChange={setMf24Cf}
@@ -1625,7 +1669,6 @@ export default function SubmitDeal() {
                           <TextField
                             id="mf5Noi"
                             label="NOI"
-                            optional
                             inputMode="decimal"
                             placeholder="$8,200 / I don't know"
                             value={mf5Noi}
@@ -1635,7 +1678,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="mf5Year"
                               label="Year built"
-                              optional
                               placeholder="1988 / I don't know"
                               value={mf5Year}
                               onChange={setMf5Year}
@@ -1643,7 +1685,6 @@ export default function SubmitDeal() {
                             <SelectField
                               id="mf5Cond"
                               label="Condition"
-                              optional
                               placeholder="Select or skip"
                               value={mf5Cond}
                               onChange={setMf5Cond}
@@ -1659,7 +1700,6 @@ export default function SubmitDeal() {
                           <RadioTiles
                             id="mf5Mort"
                             label="Existing mortgage?"
-                            optional
                             columns={3}
                             value={mf5Mort}
                             onChange={setMf5Mort}
@@ -1671,7 +1711,6 @@ export default function SubmitDeal() {
                                 <TextField
                                   id="mf5MortBal"
                                   label="Balance"
-                                  optional
                                   inputMode="decimal"
                                   placeholder="$600,000 / I don't know"
                                   value={mf5MortBal}
@@ -1680,7 +1719,6 @@ export default function SubmitDeal() {
                                 <TextField
                                   id="mf5MortRate"
                                   label="Rate"
-                                  optional
                                   inputMode="decimal"
                                   placeholder="5.5% / I don't know"
                                   value={mf5MortRate}
@@ -1690,7 +1728,6 @@ export default function SubmitDeal() {
                               <RadioTiles
                                 id="mf5Assume"
                                 label="Assumable?"
-                                optional
                                 columns={3}
                                 value={mf5Assume}
                                 onChange={setMf5Assume}
@@ -1701,7 +1738,6 @@ export default function SubmitDeal() {
                           <TextAreaField
                             id="mf5T12"
                             label="T12 / rent roll notes"
-                            optional
                             placeholder="Available on request, or a summary here..."
                             value={mf5T12}
                             onChange={setMf5T12}
@@ -1747,7 +1783,6 @@ export default function SubmitDeal() {
                                 <TextField
                                   id="mf20MortBal"
                                   label="Balance"
-                                  optional
                                   inputMode="decimal"
                                   placeholder="$2,100,000 / I don't know"
                                   value={mf20MortBal}
@@ -1756,7 +1791,6 @@ export default function SubmitDeal() {
                                 <TextField
                                   id="mf20MortRate"
                                   label="Rate"
-                                  optional
                                   inputMode="decimal"
                                   placeholder="5.75% / I don't know"
                                   value={mf20MortRate}
@@ -1766,7 +1800,6 @@ export default function SubmitDeal() {
                               <RadioTiles
                                 id="mf20Assume"
                                 label="Assumable?"
-                                optional
                                 columns={3}
                                 value={mf20Assume}
                                 onChange={setMf20Assume}
@@ -1778,7 +1811,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="mf20Noi"
                               label="NOI"
-                              optional
                               inputMode="decimal"
                               placeholder="$24,000 / I don't know"
                               value={mf20Noi}
@@ -1787,7 +1819,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="mf20Cap"
                               label="Cap rate"
-                              optional
                               inputMode="decimal"
                               placeholder="6.5% / I don't know"
                               value={mf20Cap}
@@ -1797,7 +1828,6 @@ export default function SubmitDeal() {
                           <TextAreaField
                             id="mf20T12"
                             label="T12 / rent roll / CapEx notes"
-                            optional
                             placeholder="Available on request, or a summary here..."
                             value={mf20T12}
                             onChange={setMf20T12}
@@ -1805,7 +1835,6 @@ export default function SubmitDeal() {
                           <RadioTiles
                             id="mf20Sf"
                             label="Open to seller financing?"
-                            optional
                             columns={3}
                             value={mf20Sf}
                             onChange={setMf20Sf}
@@ -1819,6 +1848,7 @@ export default function SubmitDeal() {
                   {asset === "mhp" && (
                     <>
                       <StepHeading
+                        headingRef={headingRef}
                         step={2}
                         title="Mobile home park details"
                         lede="Lots, utilities and who owns the homes tell me most of what I need. Skip what you don't know."
@@ -1905,7 +1935,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="mhpPohUnits"
                               label="Number of POH units"
-                              optional
                               type="number"
                               inputMode="numeric"
                               placeholder="12"
@@ -1915,7 +1944,6 @@ export default function SubmitDeal() {
                             <SelectField
                               id="mhpPohCond"
                               label="POH condition"
-                              optional
                               placeholder="Select or skip"
                               value={mhpPohCond}
                               onChange={setMhpPohCond}
@@ -1936,7 +1964,6 @@ export default function SubmitDeal() {
                             id="mhpInc"
                             label="Gross monthly income"
                             required={isWholesaler}
-                            optional={!isWholesaler}
                             inputMode="decimal"
                             placeholder="$19,200 / I don't know"
                             value={mhpInc}
@@ -1946,7 +1973,6 @@ export default function SubmitDeal() {
                           <TextField
                             id="mhpLotRent"
                             label="Lot rent (per lot, per month)"
-                            optional
                             inputMode="decimal"
                             placeholder="$400 / I don't know"
                             value={mhpLotRent}
@@ -1957,7 +1983,6 @@ export default function SubmitDeal() {
                         <RadioTiles
                           id="mhpInfra"
                           label="Infrastructure age and condition"
-                          optional
                           value={mhpInfra}
                           onChange={setMhpInfra}
                           options={[
@@ -1971,7 +1996,6 @@ export default function SubmitDeal() {
                         <RadioTiles
                           id="mhpMort"
                           label="Existing financing?"
-                          optional
                           columns={3}
                           value={mhpMort}
                           onChange={setMhpMort}
@@ -1983,7 +2007,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="mhpMortBal"
                               label="Balance"
-                              optional
                               inputMode="decimal"
                               placeholder="$650,000 / I don't know"
                               value={mhpMortBal}
@@ -1992,7 +2015,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="mhpMortRate"
                               label="Rate"
-                              optional
                               inputMode="decimal"
                               placeholder="5% / I don't know"
                               value={mhpMortRate}
@@ -2002,7 +2024,6 @@ export default function SubmitDeal() {
                           <RadioTiles
                             id="mhpAssume"
                             label="Assumable?"
-                            optional
                             columns={3}
                             value={mhpAssume}
                             onChange={setMhpAssume}
@@ -2013,7 +2034,6 @@ export default function SubmitDeal() {
                         <RadioTiles
                           id="mhpViol"
                           label="Any city or county violations?"
-                          optional
                           columns={2}
                           value={mhpViol}
                           onChange={setMhpViol}
@@ -2023,7 +2043,6 @@ export default function SubmitDeal() {
                           <TextAreaField
                             id="mhpViolDesc"
                             label="Violations"
-                            optional
                             placeholder="Describe any known violations or compliance issues..."
                             value={mhpViolDesc}
                             onChange={setMhpViolDesc}
@@ -2033,7 +2052,6 @@ export default function SubmitDeal() {
                         <RadioTiles
                           id="mhpEnv"
                           label="Known environmental issues?"
-                          optional
                           columns={2}
                           value={mhpEnv}
                           onChange={setMhpEnv}
@@ -2043,7 +2061,6 @@ export default function SubmitDeal() {
                           <TextAreaField
                             id="mhpEnvDesc"
                             label="Environmental issues"
-                            optional
                             placeholder="Describe any known environmental concerns..."
                             value={mhpEnvDesc}
                             onChange={setMhpEnvDesc}
@@ -2053,7 +2070,6 @@ export default function SubmitDeal() {
                         <RadioTiles
                           id="mhpSf"
                           label="Open to seller financing?"
-                          optional
                           columns={3}
                           value={mhpSf}
                           onChange={setMhpSf}
@@ -2066,6 +2082,7 @@ export default function SubmitDeal() {
                   {asset === "rv" && (
                     <>
                       <StepHeading
+                        headingRef={headingRef}
                         step={2}
                         title="RV park / campground details"
                         lede="Sites, season and revenue. Skip what you don't know."
@@ -2146,7 +2163,6 @@ export default function SubmitDeal() {
                           <TextField
                             id="rvPeakOcc"
                             label="Peak season average occupancy"
-                            optional
                             placeholder="90% / I don't know"
                             value={rvPeakOcc}
                             onChange={setRvPeakOcc}
@@ -2166,7 +2182,6 @@ export default function SubmitDeal() {
                           <RadioTiles
                             id="rvLt"
                             label="Long-term or permanent residents?"
-                            optional
                             columns={2}
                             value={rvLt}
                             onChange={setRvLt}
@@ -2176,7 +2191,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="rvLtCount"
                               label="Approximately how many?"
-                              optional
                               type="number"
                               inputMode="numeric"
                               placeholder="12"
@@ -2191,7 +2205,6 @@ export default function SubmitDeal() {
                         <CheckTiles
                           id="rvSiteTypes"
                           label="Site type breakdown, check all that apply"
-                          optional
                           options={[
                             "Full hookup (water, electric, sewer)",
                             "Water & electric only",
@@ -2208,7 +2221,6 @@ export default function SubmitDeal() {
                             id="rvRev"
                             label="Gross annual revenue"
                             required={isWholesaler}
-                            optional={!isWholesaler}
                             inputMode="decimal"
                             placeholder="$320,000 / I don't know"
                             value={rvRev}
@@ -2218,7 +2230,6 @@ export default function SubmitDeal() {
                           <SelectField
                             id="rvMgmt"
                             label="Management type"
-                            optional
                             placeholder="Select or skip"
                             value={rvMgmt}
                             onChange={setRvMgmt}
@@ -2232,7 +2243,6 @@ export default function SubmitDeal() {
                         <TextField
                           id="rvBooking"
                           label="Booking platform"
-                          optional
                           placeholder="Campspot, Hipcamp, direct, none, I don't know..."
                           value={rvBooking}
                           onChange={setRvBooking}
@@ -2240,17 +2250,16 @@ export default function SubmitDeal() {
 
                         <Pills
                           label="Amenities, check all that apply"
-                          optional
                           options={[
                             "Pool",
                             "Bathhouse",
                             "Laundry",
                             "Playground",
-                            "Camp Store",
-                            "Boat Launch",
+                            "Camp store",
+                            "Boat launch",
                             "WiFi",
                             "Fishing",
-                            "Mini Golf",
+                            "Mini golf",
                           ]}
                           selected={rvAmenities}
                           onChange={setRvAmenities}
@@ -2260,7 +2269,6 @@ export default function SubmitDeal() {
                           id="rvMort"
                           label="Existing financing?"
                           required={isWholesaler}
-                          optional={!isWholesaler}
                           columns={3}
                           value={rvMort}
                           onChange={bind(setRvMort, "rvMort")}
@@ -2273,7 +2281,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="rvMortBal"
                               label="Balance"
-                              optional
                               inputMode="decimal"
                               placeholder="$900,000 / I don't know"
                               value={rvMortBal}
@@ -2282,7 +2289,6 @@ export default function SubmitDeal() {
                             <TextField
                               id="rvMortRate"
                               label="Rate"
-                              optional
                               inputMode="decimal"
                               placeholder="5.25% / I don't know"
                               value={rvMortRate}
@@ -2292,7 +2298,6 @@ export default function SubmitDeal() {
                           <RadioTiles
                             id="rvAssume"
                             label="Assumable?"
-                            optional
                             columns={3}
                             value={rvAssume}
                             onChange={setRvAssume}
@@ -2303,7 +2308,6 @@ export default function SubmitDeal() {
                         <RadioTiles
                           id="rvSf"
                           label="Open to seller financing?"
-                          optional
                           columns={3}
                           value={rvSf}
                           onChange={setRvSf}
@@ -2320,12 +2324,11 @@ export default function SubmitDeal() {
               {/* Step 4: final */}
               {step === 3 && (
                 <>
-                  <StepHeading step={3} title="Almost done." lede="Anything else, then confirm and send it over." />
+                  <StepHeading headingRef={headingRef} step={3} title="Almost done." lede="Anything else, then confirm and send it over." />
                   <div className="space-y-6">
                     <TextAreaField
                       id="notes"
                       label="Anything else I should know?"
-                      optional
                       placeholder="Timeline, additional context, or anything else..."
                       value={notes}
                       onChange={setNotes}
@@ -2334,7 +2337,6 @@ export default function SubmitDeal() {
                     <SelectField
                       id="hearAbout"
                       label="How did you hear about me?"
-                      optional
                       value={hearAbout}
                       onChange={setHearAbout}
                       options={[
@@ -2352,7 +2354,6 @@ export default function SubmitDeal() {
                       <TextField
                         id="referralFee"
                         label="Referral fee expectation"
-                        optional
                         placeholder="$2,500 flat / 50% of spread / negotiable..."
                         value={referralFee}
                         onChange={setReferralFee}
@@ -2360,7 +2361,6 @@ export default function SubmitDeal() {
                       <RadioTiles
                         id="dealStatus"
                         label="Your status on this deal"
-                        optional
                         columns={3}
                         value={dealStatus}
                         onChange={setDealStatus}

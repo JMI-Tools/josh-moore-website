@@ -37,14 +37,14 @@ const PIPELINE_MAP = {
 
 // Category ids and labels. Must match CATEGORIES in client/src/pages/Collaborate.tsx.
 const CATEGORIES = {
-  "bird-dog": { label: "Bird Dog", tag: "bird-dog" },
+  "bird-dog": { label: "Bird dog", tag: "bird-dog" },
   wholesaler: { label: "Wholesaler", tag: "wholesaler" },
-  "hard-money": { label: "Hard Money Lender", tag: "hard-money-lender" },
-  dscr: { label: "DSCR Lender", tag: "dscr-lender" },
-  "commercial-lender": { label: "Commercial Lender", tag: "commercial-lender" },
-  "mortgage-broker": { label: "Mortgage Broker", tag: "mortgage-broker" },
-  "commercial-broker": { label: "Commercial Broker", tag: "commercial-broker" },
-  "industry-partner": { label: "Industry Partner", tag: "industry-partner" },
+  "hard-money": { label: "Hard money lender", tag: "hard-money-lender" },
+  dscr: { label: "DSCR lender", tag: "dscr-lender" },
+  "commercial-lender": { label: "Commercial lender", tag: "commercial-lender" },
+  "mortgage-broker": { label: "Mortgage broker", tag: "mortgage-broker" },
+  "commercial-broker": { label: "Commercial broker", tag: "commercial-broker" },
+  "industry-partner": { label: "Industry partner", tag: "industry-partner" },
 };
 
 /* ---------- Option lists (same strings the form offers) ---------- */
@@ -60,8 +60,8 @@ const STATES = [
   "Wisconsin", "Wyoming",
 ];
 const ASSET_CLASSES = [
-  "Single Family", "Multifamily", "Mobile Home Park", "RV Park / Campground",
-  "Self Storage", "Land", "Commercial", "Other",
+  "Single family", "Multifamily", "Mobile home park", "RV park / campground",
+  "Self storage", "Land", "Commercial", "Other",
 ];
 const LEND_ASSETS = ASSET_CLASSES.filter((a) => a !== "Other");
 const LOAN_TERMS = ["6 months", "12 months", "24 months", "Longer", "Flexible"];
@@ -74,10 +74,10 @@ const DEAL_SIZES = [
   "Under $500,000", "$500,000 to $1,000,000", "$1,000,000 to $5,000,000",
   "$5,000,000 to $10,000,000", "$10,000,000+",
 ];
-const BROKER_PRODUCTS = ["Conventional", "FHA", "DSCR", "Hard Money", "Commercial", "Other"];
+const BROKER_PRODUCTS = ["Conventional", "FHA", "DSCR", "Hard money", "Commercial", "Other"];
 const PARTNER_ROLES = [
-  "Property Manager", "Contractor / Rehab Crew", "Disposition Partner", "Title Company",
-  "Real Estate Attorney", "Virtual Assistant", "Acquisitions Support", "Other",
+  "Property manager", "Contractor / rehab crew", "Disposition partner", "Title company",
+  "Real estate attorney", "Virtual assistant", "Acquisitions support", "Other",
 ];
 const HEAR_ABOUT = [
   "Instagram", "Facebook", "Referral", "Google search", "Meetup / event",
@@ -468,8 +468,19 @@ export default async function handler(req, res) {
   const body = parseBody(req);
   if (!body) return res.status(400).json({ error: "Could not read the form. Please refresh and try again." });
 
-  // Bots get a quiet 200 so they have nothing to learn from.
-  if (looksLikeBot(body)) return res.status(200).json({ ok: true });
+  // Bots get a quiet 200 so they have nothing to learn from. Every drop is logged
+  // with the email domain only, so a real person caught by the trap can be traced.
+  if (looksLikeBot(body)) {
+    const email = clean(body.email, 200);
+    const at = email.lastIndexOf("@");
+    const domain = (at >= 0 ? email.slice(at + 1) : "").toLowerCase() || "none";
+    const reason =
+      typeof body.company_website === "string" && body.company_website.trim() !== ""
+        ? "honeypot filled"
+        : "submitted too fast";
+    console.warn(`[submit-collaboration] dropped a submission that looks like a bot (${reason}; email domain: ${domain})`);
+    return res.status(200).json({ ok: true });
+  }
 
   const { error, data } = normalize(body);
   if (error) return res.status(400).json({ error });

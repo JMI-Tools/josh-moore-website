@@ -250,18 +250,24 @@ export default function StoryExperience({
   }, [active, reduced]);
 
   const jump = (index: number) => {
-    if (!section.current || !stage.current) return;
+    const root = section.current,
+      screen = stage.current;
+    if (!root || !screen) return;
     const chapterStart = storyChapters[index].start;
     const chapterEnd = storyChapters[index + 1]?.start ?? STORY_DURATION;
     const p =
       (chapterStart + Math.min(2, (chapterEnd - chapterStart) * 0.25)) /
       STORY_DURATION;
+    // Scroll the window to the chapter's document offset. Never scrollIntoView
+    // here: that can scroll the sticky stage's own overflow box instead.
+    const sectionTop = root.getBoundingClientRect().top + window.scrollY;
     window.scrollTo({
-      top:
-        section.current.offsetTop +
-        (section.current.offsetHeight - stage.current.offsetHeight) * p,
+      top: sectionTop + (root.offsetHeight - screen.offsetHeight) * p,
       behavior: "instant",
     });
+    // The stage is overflow: clip, so it should never scroll. Pin it anyway.
+    screen.scrollLeft = 0;
+    screen.scrollTop = 0;
   };
 
   return (
@@ -382,10 +388,10 @@ export default function StoryExperience({
               ))}
             </nav>
             <div className="story-scroll-cue">
-              {progress < 0.03
-                ? "Scroll to walk through my story"
-                : progress > 0.95
-                  ? "Keep going. Meet Josh."
+              {chapterIndex === storyChapters.length - 1
+                ? "Meet Josh"
+                : progress < 0.03
+                  ? "Scroll to walk through my story"
                   : "Keep going"}
               <ArrowDown size={16} />
             </div>

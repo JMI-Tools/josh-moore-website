@@ -2,10 +2,8 @@ import {
   ArrowUpRight,
   Bot,
   Briefcase,
-  DollarSign,
   GraduationCap,
   Home,
-  Landmark,
   Mic,
   Video,
   type LucideIcon,
@@ -31,22 +29,14 @@ const lendingResources: Resource[] = [
     title: "Creative finance-friendly insurance",
     description: "National coverage for investors using creative strategies.",
     buttonText: "Get a quote",
-    url: "http://joshmoore.steadilypartner.com",
+    url: "https://joshmoore.steadilypartner.com",
   },
-  {
-    icon: DollarSign,
-    title: "Construction and hard money loans",
-    description: "90% LTV, 100% construction and LTC, and fast closings for fix and flips.",
-    buttonText: "Learn more",
-    url: "https://www.investorloandirect.com",
-  },
-  {
-    icon: Landmark,
-    title: "Investment loans",
-    description: "Flexible financing for fix and flip projects.",
-    buttonText: "Apply now",
-    url: "https://www.investorloandirect.com",
-  },
+  // The two Investor Loan Direct cards (construction and hard money loans, and
+  // fix and flip loans) come back here when investorloandirect.com is live.
+  // The site returned 404 on both www and apex at review time, so they are out
+  // rather than shipping two dead buttons. When they return, write the loan
+  // line as "Up to 90% LTV, up to 100% of construction costs, and fast
+  // closings for fix and flips." and give each card its own URL.
 ];
 
 const aiResources: Resource[] = [
@@ -148,16 +138,16 @@ export default function Resources() {
         tone="paper"
         eyebrow="Resources"
         title="Tools and services I actually use."
-        lede="The insurance, lenders, training and software I point people to when they ask. Some of these are referral links, so I may get a credit or a commission if you sign up through them."
+        lede="The insurance, training and software I point people to when they ask. Some of these are referral links, so I may get a credit or a commission if you sign up through them."
       />
 
       {/* Insurance and lending */}
       <Section tone="white">
         <Reveal>
           <SectionHeading
-            eyebrow="Insurance and lending"
-            title="Financial and lending resources"
-            lede="Coverage that understands creative deals, and business purpose loans for the projects that need them."
+            eyebrow="Insurance"
+            title="Coverage that understands creative deals."
+            lede="Landlord and flip policies that do not flinch at seller financing or subject-to. Lending links come back when Investor Loan Direct is live."
           />
         </Reveal>
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -200,7 +190,7 @@ export default function Resources() {
             </p>
             <div className="mt-8">
               <ExternalButton href={DEAL_FINDER_URL} variant="default">
-                Join Free
+                Join free
               </ExternalButton>
             </div>
           </Reveal>

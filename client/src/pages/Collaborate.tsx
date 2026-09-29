@@ -51,7 +51,7 @@ type Category = {
 const CATEGORIES: Category[] = [
   {
     id: "bird-dog",
-    label: "Bird Dog",
+    label: "Bird dog",
     description: "You spot properties and send me the lead.",
     icon: Binoculars,
     intro:
@@ -60,14 +60,14 @@ const CATEGORIES: Category[] = [
   {
     id: "wholesaler",
     label: "Wholesaler",
-    description: "You have deals under contract to JV or assign.",
+    description: "You have deals under contract to assign or co-wholesale.",
     icon: Handshake,
     intro:
-      "I appreciate you taking a second to connect. I'd love to JV on or buy a deal from you. Tell me a little about you and where you operate, and let's find a win together.",
+      "I appreciate you taking a second to connect. I'd love to co-wholesale or buy a deal from you. Tell me a little about you and where you operate, and let's find a win together.",
   },
   {
     id: "hard-money",
-    label: "Hard Money Lender",
+    label: "Hard money lender",
     description: "Short-term, asset-based loans on investment property.",
     icon: Banknote,
     intro:
@@ -75,7 +75,7 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "dscr",
-    label: "DSCR Lender",
+    label: "DSCR lender",
     description: "Rental loans underwritten on the property's cash flow.",
     icon: Percent,
     intro:
@@ -83,7 +83,7 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "commercial-lender",
-    label: "Commercial Lender",
+    label: "Commercial lender",
     description: "Debt on multifamily, parks, storage and commercial.",
     icon: Landmark,
     intro:
@@ -91,7 +91,7 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "mortgage-broker",
-    label: "Mortgage Broker",
+    label: "Mortgage broker",
     description: "You place loans with lenders for investors.",
     icon: Briefcase,
     intro:
@@ -99,7 +99,7 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "commercial-broker",
-    label: "Commercial Broker",
+    label: "Commercial broker",
     description: "You list, source and sell commercial property.",
     icon: Building2,
     intro:
@@ -107,7 +107,7 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "industry-partner",
-    label: "Industry Partner",
+    label: "Industry partner",
     description: "Property managers, contractors, title, attorneys and more.",
     icon: Users,
     intro:
@@ -129,8 +129,8 @@ const STATES = [
 ];
 
 const ASSET_CLASSES = [
-  "Single Family", "Multifamily", "Mobile Home Park", "RV Park / Campground",
-  "Self Storage", "Land", "Commercial", "Other",
+  "Single family", "Multifamily", "Mobile home park", "RV park / campground",
+  "Self storage", "Land", "Commercial", "Other",
 ];
 const LEND_ASSETS = ASSET_CLASSES.filter((a) => a !== "Other");
 const LOAN_TERMS = ["6 months", "12 months", "24 months", "Longer", "Flexible"];
@@ -143,10 +143,10 @@ const DEAL_SIZES = [
   "Under $500,000", "$500,000 to $1,000,000", "$1,000,000 to $5,000,000",
   "$5,000,000 to $10,000,000", "$10,000,000+",
 ];
-const BROKER_PRODUCTS = ["Conventional", "FHA", "DSCR", "Hard Money", "Commercial", "Other"];
+const BROKER_PRODUCTS = ["Conventional", "FHA", "DSCR", "Hard money", "Commercial", "Other"];
 const PARTNER_ROLES = [
-  "Property Manager", "Contractor / Rehab Crew", "Disposition Partner", "Title Company",
-  "Real Estate Attorney", "Virtual Assistant", "Acquisitions Support", "Other",
+  "Property manager", "Contractor / rehab crew", "Disposition partner", "Title company",
+  "Real estate attorney", "Virtual assistant", "Acquisitions support", "Other",
 ];
 const HEAR_ABOUT = [
   "Instagram", "Facebook", "Referral", "Google search", "Meetup / event",
@@ -206,7 +206,7 @@ const goal = (key: string): Field => ({
 const CONTACT_FIELDS: Field[] = [
   { key: "name", kind: "text", label: "Full name", required: true, placeholder: "John Smith", autoComplete: "name" },
   { key: "email", kind: "text", label: "Email address", required: true, inputType: "email", placeholder: "john@example.com", autoComplete: "email", half: true },
-  { key: "phone", kind: "text", label: "Phone number", required: true, inputType: "tel", placeholder: "(616) 555-0000", autoComplete: "tel", half: true },
+  { key: "phone", kind: "text", label: "Phone number", required: true, inputType: "tel", placeholder: "(616) 555-0100", autoComplete: "tel", half: true },
   { key: "website", kind: "text", label: "Company or website", placeholder: "yourcompany.com", autoComplete: "url" },
 ];
 
@@ -378,23 +378,32 @@ const digitsIn = (s: string) => s.replace(/\D/g, "");
 const visibleFields = (fields: Field[], answers: Answers) =>
   fields.filter((f) => !f.showIf || f.showIf(answers));
 
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
+/** The short sentence shown when a required question is left empty. */
+const missingMessage = (f: Field): string => {
+  if (isMulti(f)) return "Please select at least one.";
+  if (f.kind === "radio" || f.kind === "select") return "Please pick one.";
+  return `Please enter your ${lowerFirst(f.label)}.`;
+};
+
 function validateFields(fields: Field[], answers: Answers): Record<string, string> {
   const errs: Record<string, string> = {};
   for (const f of fields) {
     if (isMulti(f)) {
-      if (f.required && listOf(answers, f.key).length === 0) errs[f.key] = "Select at least one.";
+      if (f.required && listOf(answers, f.key).length === 0) errs[f.key] = missingMessage(f);
       continue;
     }
     const v = strOf(answers, f.key).trim();
     if (f.required && !v) {
-      errs[f.key] = f.kind === "radio" || f.kind === "select" ? "Pick one." : "Required.";
+      errs[f.key] = missingMessage(f);
       continue;
     }
     if (v && f.kind === "text" && f.inputType === "email" && !EMAIL_RE.test(v)) {
-      errs[f.key] = "Enter a valid email address.";
+      errs[f.key] = "Please enter a valid email address.";
     }
     if (v && f.kind === "text" && f.inputType === "tel" && digitsIn(v).length < 10) {
-      errs[f.key] = "Enter a phone number with the area code.";
+      errs[f.key] = "Please enter a phone number with the area code.";
     }
   }
   return errs;
@@ -410,9 +419,12 @@ const GENERIC_ERROR =
 const THANK_YOU =
   "Thanks for reaching out. I'll review your submission and be in touch if there's a fit. Let's find a win together.";
 
-function Optional() {
+/** The asterisk after a required label. Optional questions carry no marker. */
+function Mark() {
   return (
-    <span className="ml-1.5 font-normal normal-case tracking-normal text-ink-muted">(optional)</span>
+    <span aria-hidden="true" className="ml-1 text-destructive">
+      *
+    </span>
   );
 }
 
@@ -445,10 +457,10 @@ function FieldView({
   if (field.kind === "text" || field.kind === "textarea" || field.kind === "select") {
     const value = strOf(answers, field.key);
     return (
-      <div>
+      <div data-field={field.key}>
         <label htmlFor={id} className="field-label">
           {field.label}
-          {!field.required && <Optional />}
+          {field.required && <Mark />}
         </label>
         {field.kind === "text" && (
           <input
@@ -513,10 +525,16 @@ function FieldView({
   if (field.kind === "radio") {
     const value = strOf(answers, field.key);
     return (
-      <div role="radiogroup" aria-labelledby={id} aria-describedby={describedBy} aria-invalid={invalid}>
+      <div
+        role="radiogroup"
+        aria-labelledby={id}
+        aria-describedby={describedBy}
+        aria-invalid={invalid}
+        data-field={field.key}
+      >
         <span id={id} className="field-label">
           {field.label}
-          {!field.required && <Optional />}
+          {field.required && <Mark />}
         </span>
         <div className={cn("grid gap-2.5", field.options.length > 2 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
           {field.options.map((opt) => (
@@ -531,6 +549,8 @@ function FieldView({
                 checked={value === opt.value}
                 onChange={() => onChange(field.key, opt.value)}
                 className="peer sr-only"
+                aria-invalid={invalid}
+                aria-describedby={describedBy}
               />
               <span
                 aria-hidden="true"
@@ -552,10 +572,10 @@ function FieldView({
 
   if (field.kind === "checks") {
     return (
-      <div role="group" aria-labelledby={id} aria-describedby={describedBy}>
+      <div role="group" aria-labelledby={id} aria-describedby={describedBy} data-field={field.key}>
         <span id={id} className="field-label">
           {field.label}
-          {!field.required && <Optional />}
+          {field.required && <Mark />}
         </span>
         <div className="grid gap-2.5 sm:grid-cols-2">
           {field.options.map((opt) => (
@@ -570,6 +590,8 @@ function FieldView({
                 checked={selected.includes(opt)}
                 onChange={() => toggle(opt)}
                 className="peer sr-only"
+                aria-invalid={invalid}
+                aria-describedby={describedBy}
               />
               <span
                 aria-hidden="true"
@@ -595,6 +617,7 @@ function FieldView({
           type="button"
           className={cn("pill", field.kind === "states" && "px-3.5 text-sm")}
           aria-pressed={selected.includes(opt)}
+          aria-describedby={describedBy}
           onClick={() => toggle(opt)}
         >
           {opt}
@@ -604,10 +627,10 @@ function FieldView({
   );
 
   return (
-    <div role="group" aria-labelledby={id} aria-describedby={describedBy}>
+    <div role="group" aria-labelledby={id} aria-describedby={describedBy} data-field={field.key}>
       <span id={id} className="field-label">
         {field.label}
-        {!field.required && <Optional />}
+        {field.required && <Mark />}
       </span>
       {field.kind === "states" ? (
         <>
@@ -648,23 +671,27 @@ function FieldGrid({
   );
 }
 
-/** A consent checkbox with its own error line. */
+/** A consent checkbox with its own error line. `name` is the key the error is filed under. */
 function CheckRow({
   id,
+  name,
   checked,
   onChange,
   error,
+  required,
   children,
 }: {
   id: string;
+  name: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   error?: string;
+  required?: boolean;
   children: ReactNode;
 }) {
   const errorId = `${id}-error`;
   return (
-    <div>
+    <div data-field={name}>
       <label
         htmlFor={id}
         className={cn(
@@ -674,10 +701,12 @@ function CheckRow({
       >
         <input
           id={id}
+          name={name}
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
           className="peer sr-only"
+          aria-required={required || undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
         />
@@ -687,7 +716,10 @@ function CheckRow({
         >
           <Check className="size-3.5" strokeWidth={3} />
         </span>
-        <span className="text-[15px] leading-relaxed text-ink">{children}</span>
+        <span className="text-[15px] leading-relaxed text-ink">
+          {children}
+          {required && <Mark />}
+        </span>
       </label>
       <FieldError id={errorId} message={error} />
     </div>
@@ -761,6 +793,7 @@ export default function Collaborate() {
   const [submitted, setSubmitted] = useState(false);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const mounted = useRef(false);
 
@@ -792,14 +825,26 @@ export default function Collaborate() {
     });
   };
 
+  // After a failed Next, take the visitor to the first problem: bring that
+  // question into view and focus its control so the error is read out with it.
+  const focusField = (key: string) => {
+    const wrap = formRef.current?.querySelector<HTMLElement>(`[data-field="${key}"]`);
+    if (!wrap) return;
+    const control = wrap.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea, button');
+    wrap.scrollIntoView({ behavior: "smooth", block: "center" });
+    control?.focus({ preventScroll: true });
+  };
+
   const validateStep = (s: number): boolean => {
     let errs: Record<string, string> = {};
     if (s === 0) errs = validateFields(CONTACT_FIELDS, answers);
-    if (s === 1 && !category) errs.category = "Pick the option that fits you best.";
+    if (s === 1 && !category) errs.category = "Please pick the lane that fits you best.";
     if (s === 3) errs = validateFields(categoryFields, answers);
     if (s === LAST_STEP && !consent) errs.consent = "Please confirm before you submit.";
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    const first = Object.keys(errs)[0];
+    if (first) window.requestAnimationFrame(() => focusField(first));
+    return !first;
   };
 
   const next = () => {
@@ -877,7 +922,7 @@ export default function Collaborate() {
         tone="navy"
         eyebrow="Collaborate"
         title="Let's find a win together."
-        lede="If you find deals, fund deals, place loans, or make deals run smoother, I want to know you. Pick the lane that fits, tell me how you work, and if there's a fit I'll be in touch."
+        lede="If you find deals, lend on deals, place loans, or make deals run smoother, I want to know you. Pick the lane that fits, tell me how you work, and if there's a fit I'll be in touch."
         aside={<HowItWorks />}
       />
 
@@ -902,11 +947,22 @@ export default function Collaborate() {
               </div>
             ) : (
               <form
+                ref={formRef}
                 noValidate
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (step === LAST_STEP) void handleSubmit();
                   else next();
+                }}
+                onKeyDown={(e) => {
+                  // On the last step only the Submit button sends the form. Enter on a
+                  // checkbox, select or text control must not submit by accident.
+                  if (e.key !== "Enter" || step !== LAST_STEP) return;
+                  const target = e.target as HTMLElement;
+                  const type = (target as HTMLInputElement).type;
+                  if (target.tagName !== "TEXTAREA" && type !== "submit" && type !== "button") {
+                    e.preventDefault();
+                  }
                 }}
               >
                 {/* Progress */}
@@ -933,19 +989,23 @@ export default function Collaborate() {
                   </div>
                 </div>
 
-                {/* Bot traps. A person never sees or fills these. */}
+                {/* Bot traps. A person never sees or fills these. The trap's DOM name
+                    carries no autofill meaning; it still posts as company_website. */}
                 <input type="hidden" name="started_at" value={startedAt} />
                 <input type="hidden" name="sourcePage" value={sourcePage} />
-                <input
-                  type="text"
-                  name="company_website"
-                  value={honeypot}
-                  onChange={(e) => setHoneypot(e.target.value)}
-                  tabIndex={-1}
-                  autoComplete="off"
-                  aria-hidden="true"
-                  className="sr-only"
-                />
+                <div aria-hidden="true" className="sr-only">
+                  <span>Leave this blank</span>
+                  <input
+                    id="ref_code_2"
+                    name="ref_code_2"
+                    type="text"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                  />
+                </div>
 
                 {step === 0 && (
                   <>
@@ -968,7 +1028,9 @@ export default function Collaborate() {
                     <div
                       role="radiogroup"
                       aria-label="How you want to collaborate"
+                      aria-invalid={errors.category ? true : undefined}
                       aria-describedby={errors.category ? "collab-category-error" : undefined}
+                      data-field="category"
                       className="grid gap-3 sm:grid-cols-2"
                     >
                       {CATEGORIES.map((cat) => {
@@ -989,6 +1051,8 @@ export default function Collaborate() {
                                 setErrors({});
                               }}
                               className="peer sr-only"
+                              aria-invalid={errors.category ? true : undefined}
+                              aria-describedby={errors.category ? "collab-category-error" : undefined}
                             />
                             <span
                               aria-hidden="true"
@@ -1060,6 +1124,8 @@ export default function Collaborate() {
                     <div className="mt-6 space-y-3">
                       <CheckRow
                         id="collab-consent"
+                        name="consent"
+                        required
                         checked={consent}
                         onChange={(v) => {
                           setConsent(v);
@@ -1069,7 +1135,7 @@ export default function Collaborate() {
                       >
                         I confirm this information is accurate to the best of my knowledge.
                       </CheckRow>
-                      <CheckRow id="collab-sms" checked={smsConsent} onChange={setSmsConsent}>
+                      <CheckRow id="collab-sms" name="smsConsent" checked={smsConsent} onChange={setSmsConsent}>
                         <span className="font-medium">Text me about this.</span> I agree to receive text
                         messages from Josh Moore about my submission. Message frequency varies. Message and
                         data rates may apply. Reply STOP to opt out, HELP for help.

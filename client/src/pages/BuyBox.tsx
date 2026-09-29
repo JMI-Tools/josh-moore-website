@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import {
   ArrowRight,
   Building,
+  Building2,
   Check,
   Factory,
   Home as HomeIcon,
@@ -18,7 +19,7 @@ interface BuyBoxCard {
   title: string;
   shortTitle: string;
   icon: LucideIcon;
-  investmentGoal: string;
+  goal: string;
   criteria: { label: string; value: string }[];
   dealKillers?: string[];
   valueAddFocus: string[];
@@ -28,30 +29,46 @@ interface BuyBoxCard {
 const cards: BuyBoxCard[] = [
   {
     id: "single-family",
-    title: "Single Family Residential",
+    title: "Single family residential",
     shortTitle: "Single family",
     icon: HomeIcon,
-    investmentGoal: "Fix & Flip",
+    goal: "Fix and flip",
     criteria: [
-      { label: "Max Purchase Price", value: "$400,000" },
-      { label: "Offer Formula", value: "70% of ARV minus repairs" },
+      { label: "Max purchase price", value: "$400,000" },
+      { label: "Offer formula", value: "70% of ARV minus repairs" },
       { label: "Condition", value: "All conditions accepted. No fire damage, no foundation damage" },
       { label: "Minimum", value: "2 bed / 1 bath" },
       { label: "Financing", value: "Cash or seller financing" },
-      { label: "Target Counties", value: "Muskegon, Kent, Ottawa, Kalamazoo, Genesee" },
-      { label: "Focus Cities", value: "Muskegon, Grand Rapids, Grand Haven, Spring Lake, Holland, Flint, Lapeer" },
+      { label: "Target counties", value: "Muskegon, Kent, Ottawa, Kalamazoo, Genesee, Lapeer" },
+      { label: "Focus cities", value: "Muskegon, Grand Rapids, Grand Haven, Spring Lake, Holland, Flint, Lapeer" },
     ],
     valueAddFocus: ["Renovations to maximize ARV", "Fast turnaround for resale"],
     ctaText: "Have a house deal? Submit it here",
   },
   {
+    id: "small-multifamily",
+    title: "Small multifamily",
+    shortTitle: "Small multifamily",
+    icon: Building2,
+    goal: "Buy and hold or fix and flip",
+    criteria: [
+      { label: "Unit count", value: "2 to 4 units" },
+      { label: "Condition", value: "Most conditions. No fire damage, no foundation damage" },
+      { label: "Financing", value: "Cash or seller financing" },
+      { label: "Target counties", value: "Muskegon, Kent, Ottawa, Kalamazoo, Genesee, Lapeer" },
+      { label: "Focus cities", value: "Muskegon, Grand Rapids, Grand Haven, Spring Lake, Holland, Flint, Lapeer" },
+    ],
+    valueAddFocus: ["Rent to market after renovations", "Owner-occupied or tired-landlord exits"],
+    ctaText: "Have a small multifamily deal? Submit it here",
+  },
+  {
     id: "commercial-multifamily",
-    title: "Commercial Multifamily",
+    title: "Commercial multifamily",
     shortTitle: "Commercial multifamily",
     icon: Building,
-    investmentGoal: "Value-Add Acquisitions",
+    goal: "Value-add acquisitions",
     criteria: [
-      { label: "Unit Count", value: "10 to 50 units" },
+      { label: "Unit count", value: "10 to 50 units" },
       { label: "Markets", value: "Midwest primary; strong deals considered nationally" },
       { label: "Financing", value: "Creative financing only" },
     ],
@@ -61,13 +78,14 @@ const cards: BuyBoxCard[] = [
   },
   {
     id: "mobile-home-park",
-    title: "Mobile Home Park",
+    title: "Mobile home park",
     shortTitle: "Mobile home parks",
     icon: Factory,
-    investmentGoal: "Value-Add and Cash Flow",
+    goal: "Value-add and cash flow",
     criteria: [
-      { label: "Min Park Size", value: "30 pads" },
-      { label: "Home Type", value: "Tenant-owned preferred; park-owned considered" },
+      { label: "Min park size", value: "30 lots" },
+      { label: "Cap rate", value: "8% or better" },
+      { label: "Home type", value: "Tenant-owned preferred; park-owned considered" },
       { label: "Markets", value: "Nationwide" },
       { label: "Financing", value: "Creative financing and seller financing only" },
     ],
@@ -77,16 +95,17 @@ const cards: BuyBoxCard[] = [
   },
   {
     id: "rv-park",
-    title: "RV Park",
+    title: "RV park",
     shortTitle: "RV parks",
     icon: Tent,
-    investmentGoal: "Acquire Underperforming or Established Parks",
+    goal: "Underperforming or established parks",
     criteria: [
       {
-        label: "Park Types",
+        label: "Park types",
         value: "Transient (near tourism) and long-term (near population centers); mixed-use accepted",
       },
-      { label: "Min Park Size", value: "30 pads" },
+      { label: "Min park size", value: "30 sites" },
+      { label: "Cap rate", value: "10% or better" },
       { label: "Markets", value: "Nationwide. No flood zone properties" },
       { label: "Financing", value: "Creative financing and seller financing only" },
     ],
@@ -158,7 +177,7 @@ export default function BuyBox() {
                     <h2 className="text-3xl md:text-[2rem]">{card.title}</h2>
                     <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
                       <span className="eyebrow">Goal</span>
-                      <span className="text-[15px] font-medium text-navy">{card.investmentGoal}</span>
+                      <span className="text-[15px] font-medium text-navy">{card.goal}</span>
                     </p>
                   </div>
                 </header>

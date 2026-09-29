@@ -8,7 +8,7 @@ import { Reveal } from "./Reveal";
  */
 export function CtaBand({
   title = "Ready to make your deal happen?",
-  lede = "Bring me the property, the problem, or the partnership. If there is a way to make it work, we will find it together.",
+  lede = "Bring me the property, the problem, or the way you want to work together. If there is a way to make it work, we will find it.",
   primaryHref = "/submit-deal",
   primaryLabel = "Submit a deal",
   secondaryHref = "/contact",

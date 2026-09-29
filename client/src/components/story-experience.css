@@ -16,7 +16,7 @@
   top: 0;
   height: 100svh;
   min-height: 600px;
-  overflow: hidden;
+  overflow: clip;
   color: #fff;
   isolation: isolate;
   background: #071725;
@@ -75,7 +75,7 @@
 }
 .story-wordmark span {
   display: block;
-  font-size: 7px;
+  font-size: 10px;
   font-weight: 400;
   letter-spacing: 0.25em;
   color: #ced8de;
@@ -97,7 +97,7 @@
   max-width: 1080px;
 }
 .story-kicker {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.6;
   letter-spacing: 0.19em;
@@ -166,7 +166,7 @@
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1.8;
   letter-spacing: 0.16em;
   color: #c0ccd6;
@@ -177,7 +177,7 @@
   top: 132px;
   display: flex;
   gap: 25px;
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.15em;
   color: #d7e0e8;
 }
@@ -374,11 +374,11 @@
     font-size: 14px;
   }
   .story-wordmark span {
-    font-size: 6px;
+    font-size: 10px;
     letter-spacing: 0.16em;
   }
   .story-masthead > button {
-    font-size: 10px;
+    font-size: 11px;
     gap: 13px;
   }
   .story-poster {
@@ -404,7 +404,7 @@
     line-height: 1.06;
   }
   .story-kicker {
-    font-size: 8px;
+    font-size: 11px;
     letter-spacing: 0.12em;
     margin-bottom: 19px;
   }
@@ -430,7 +430,7 @@
   }
   .story-arrival-foot {
     bottom: 23px;
-    font-size: 7px;
+    font-size: 10px;
     max-width: 250px;
     letter-spacing: 0.12em;
   }
@@ -440,7 +440,7 @@
   .story-coordinate {
     right: 6%;
     top: 104px;
-    font-size: 7px;
+    font-size: 10px;
     gap: 13px;
   }
   .story-coordinate > span:last-child {

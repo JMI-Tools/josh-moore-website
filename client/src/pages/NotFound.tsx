@@ -18,7 +18,7 @@ export default function NotFound() {
     <main className="glow-brand flex min-h-screen w-full flex-col items-center justify-center bg-navy px-5 py-16 text-center text-white">
       <Link href="/" aria-label="Josh Moore, home" className="mb-12">
         <img
-          src="/logo-jm-480.webp"
+          src="/logo-lockup-480.webp"
           alt="Josh Moore"
           className="h-14 w-auto"
           width={224}

@@ -31,7 +31,7 @@ const TRADE_GROUPS: ReadonlyArray<readonly [string, readonly string[]]> = [
 const COUNTIES = [
   "Muskegon", "Kent", "Ottawa", "Kalamazoo", "Allegan", "Barry", "Calhoun",
   "Van Buren", "Ionia", "Montcalm", "St. Joseph", "Cass", "Branch", "Berrien",
-  "Eaton", "Ingham", "Jackson",
+  "Eaton", "Ingham", "Jackson", "Genesee", "Lapeer",
 ];
 
 const FOCUS_COUNTIES = ["Muskegon", "Kent", "Ottawa", "Kalamazoo"];
@@ -76,6 +76,11 @@ export default function Contractors() {
   const [done, setDone] = useState<null | { name: string }>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Bot checks. The honeypot stays empty for people; started_at lets the server
+  // drop anything posted within a few seconds of the page loading.
+  const [honeypot, setHoneypot] = useState("");
+  const [startedAt] = useState(() => Date.now());
 
   const [videoOpen, setVideoOpen] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -169,11 +174,34 @@ export default function Contractors() {
   const filled = (k: string) => {
     if (k === "trades" || k === "areas") return (sets[k] || []).length > 0;
     if ((REQUIRED_PICK as readonly string[]).includes(k)) return !!picks[k];
+    if (k === "phone") return (vals.phone || "").replace(/\D/g, "").length >= 10;
     return !!(vals[k] || "").trim();
   };
   const got = need.filter(filled).length;
   const pct = Math.round((got / need.length) * 100);
   const nextUp = need.find((k) => !filled(k));
+
+  // Blur validation. Runs the same filled() check Submit uses, for one required
+  // field, so an error shows as soon as someone leaves a field empty. Optional
+  // fields are never marked. `bad` stays a plain list of keys.
+  const touch = (k: string) => {
+    if (!need.includes(k)) return;
+    setBad((b) => {
+      if (filled(k)) return b.includes(k) ? b.filter((x) => x !== k) : b;
+      return b.includes(k) ? b : b.concat(k);
+    });
+  };
+
+  // Clear an error the moment its field is filled in, whether by typing, picking a
+  // pill, or tapping a chip. Returns the same array when nothing changed so React
+  // skips the re-render.
+  useEffect(() => {
+    setBad((b) => {
+      const next = b.filter((k) => !filled(k));
+      return next.length === b.length ? b : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vals, picks, sets]);
 
   const tradeList = useMemo(() => {
     const extra = (vals.tradesOther || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -250,6 +278,8 @@ export default function Contractors() {
       notes: vals.notes || null,
       status: "new",
       source: "itsjoshmoore.com/contractors",
+      company_website: honeypot,
+      started_at: startedAt,
     };
 
     setSending(true);
@@ -281,7 +311,7 @@ export default function Contractors() {
   // Field components live at module scope (below). Defining them inline here
   // gave React a new component type every render, which remounted every input on
   // each keystroke and dropped focus. F carries the state they need.
-  const F = { vals, set, bad, picks, pick };
+  const F = { vals, set, bad, picks, pick, touch };
 
   /* ---------------------------------------------------------------- done */
 
@@ -314,14 +344,21 @@ export default function Contractors() {
   /* ---------------------------------------------------------------- page */
 
   return (
-    <SiteLayout>
+    // Bottom padding matches the fixed submit bar so the footer can scroll clear of it.
+    <SiteLayout className="pb-[calc(7rem+env(safe-area-inset-bottom))]">
       {videoOpen ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Intro video">
-          <div className="absolute inset-0 bg-navy/90 backdrop-blur-sm" onClick={closeVideo} />
-          <div className="relative flex flex-col items-center gap-4">
+        // Scrolls when the column is taller than the viewport (short phones, the
+        // Facebook in-app browser), and m-auto on the column keeps it centered when
+        // it fits. The Skip button sits above the video so it is always in reach.
+        <div className="fixed inset-0 z-[100] flex overflow-y-auto p-4" role="dialog" aria-modal="true" aria-label="Intro video">
+          <div className="fixed inset-0 bg-navy/90 backdrop-blur-sm" onClick={closeVideo} />
+          <div className="relative m-auto flex flex-col items-center gap-4">
+            <Button type="button" variant="light" size="lg" onClick={closeVideo}>
+              Skip to the form
+            </Button>
             <div
               className="relative aspect-[9/16] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black shadow-lift"
-              style={{ width: "min(calc(70vh * 9 / 16), 92vw)" }}
+              style={{ width: "min(calc(60svh * 9 / 16), 92vw)" }}
             >
               <iframe
                 title="Intro from Josh Moore"
@@ -355,9 +392,6 @@ export default function Contractors() {
                 </button>
               ) : null}
             </div>
-            <Button type="button" variant="light" size="lg" onClick={closeVideo}>
-              Skip to the form
-            </Button>
             <p className="max-w-[34ch] text-center text-[13px] text-white/60">
               Quick look at what I'm doing and who I'm looking for.
             </p>
@@ -452,25 +486,59 @@ export default function Contractors() {
           </Reveal>
         ) : null}
 
-        <form onSubmit={onSubmit} noValidate className="grid gap-5">
+        <form
+          onSubmit={onSubmit}
+          noValidate
+          className="grid gap-5"
+          onKeyDown={(e) => {
+            // Enter on a checkbox or radio is an implicit submit in Chrome and Edge.
+            // Only the Submit button sends this form; textareas keep their newlines.
+            const t = e.target as HTMLElement;
+            const type = (t as HTMLInputElement).type;
+            if (e.key === "Enter" && t.tagName !== "TEXTAREA" && t.tagName !== "SELECT" && type !== "submit" && type !== "button") {
+              e.preventDefault();
+            }
+          }}
+        >
+          {/* Honeypot. Off screen, out of the tab order, no autofill meaning, and left empty by people. */}
+          <div aria-hidden="true" className="sr-only">
+            <span>Leave this blank</span>
+            <input
+              id="ref_code_2"
+              name="ref_code_2"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
+          </div>
+
           <Reveal>
             <FormCard n="01" title="How to reach you" sub="The basics. Everything else builds off this.">
-              <Text {...F} k="name" label="Your name" req />
+              <Text {...F} k="name" label="Your name" req err="Please enter your name." />
               <Text {...F} k="company" label="Business name" hint="Leave blank if you work under your own name." />
-              <Text {...F} k="phone" label="Mobile number" req type="tel" ph="(269) 555-0100" hint="This is where job offers and scheduling texts go." />
+              <Text {...F} k="phone" label="Mobile number" req type="tel" ph="(616) 555-0100" hint="This is where job offers and scheduling texts go."
+                err="Please enter a mobile number with the area code." />
               <Pills {...F} k="sms" label="Can that number receive text messages?" req opts={[["yes", "Yes"], ["no", "No, call me"]]} />
               <Consent {...F} k="smsConsent" text={SMS_CONSENT_TEXT} />
-              <Text {...F} k="email" label="Email" req type="email" hint="Where we send your paperwork and payment records." />
+              <Text {...F} k="email" label="Email" req type="email" hint="Where we send your paperwork and payment records." err="Please enter your email." />
               <Pills {...F} k="contactPref" label="Best way to reach you" req opts={[["text", "Text"], ["call", "Call"], ["email", "Email"]]} />
             </FormCard>
           </Reveal>
 
           <Reveal delay={0.05}>
             <FormCard n="02" title="What you do" sub="Check everything you take on. Be generous, we would rather call you and hear no.">
-              <div data-field="trades">
+              <div
+                data-field="trades"
+                role="group"
+                aria-label="Trades you take on"
+                aria-invalid={bad.includes("trades") ? "true" : undefined}
+                aria-describedby={bad.includes("trades") ? "jmc-trades-error" : undefined}
+              >
                 <TradeChips selected={sets.trades || []} toggle={toggle} />
                 <p className="field-help"><b className="font-semibold text-navy">{tradeList.length}</b> selected</p>
-                <Err k="trades" msg="Pick at least one." bad={bad} />
+                <Err k="trades" msg="Please pick at least one trade." bad={bad} />
               </div>
               <Text {...F} k="tradesOther" label="Anything not on that list?" ph="Septic, well pumps, masonry, pools" />
               <Select {...F} k="primaryTrade" label="Your main trade" req opts={tradeList}
@@ -487,7 +555,13 @@ export default function Contractors() {
             <FormCard n="03" title="How you work" sub="There is no wrong answer here. Plenty of our work does not need a license, and we hire accordingly.">
               <div data-field="licenseType">
                 <span className="field-label" id="jmc-licenseType-label">How you work<Req req /></span>
-                <div className="grid gap-3" role="radiogroup" aria-labelledby="jmc-licenseType-label">
+                <div
+                  className="grid gap-3"
+                  role="radiogroup"
+                  aria-labelledby="jmc-licenseType-label"
+                  aria-invalid={bad.includes("licenseType") ? "true" : undefined}
+                  aria-describedby={bad.includes("licenseType") ? "jmc-licenseType-error" : undefined}
+                >
                   {LICENSE_CHOICES.map((c) => (
                     <label key={c.value} className="choice cursor-pointer">
                       <input
@@ -511,7 +585,7 @@ export default function Contractors() {
                     </label>
                   ))}
                 </div>
-                <Err k="licenseType" msg="Pick one." bad={bad} />
+                <Err k="licenseType" msg="Please choose one." bad={bad} />
                 {isLicensed ? (
                   <Inset>
                     <Row>
@@ -544,10 +618,16 @@ export default function Contractors() {
 
           <Reveal delay={0.05}>
             <FormCard n="04" title="Where you work" sub="Check every county you will drive to.">
-              <div data-field="areas">
+              <div
+                data-field="areas"
+                role="group"
+                aria-label="Counties you will drive to"
+                aria-invalid={bad.includes("areas") ? "true" : undefined}
+                aria-describedby={bad.includes("areas") ? "jmc-areas-error" : undefined}
+              >
                 <CountyChips selected={sets.areas || []} toggle={toggle} />
                 <p className="field-help"><b className="font-semibold text-navy">{(sets.areas || []).length}</b> selected</p>
-                <Err k="areas" msg="Pick at least one county." bad={bad} />
+                <Err k="areas" msg="Please pick at least one county." bad={bad} />
               </div>
               <Row>
                 <Text {...F} k="areasOther" label="Any county not listed?" ph="County name" />
@@ -598,6 +678,13 @@ export default function Contractors() {
           <Reveal delay={0.05}>
             <FormCard n="08" title="Anything else" sub="Last box. Tell us whatever does not fit above." optional>
               <Text {...F} k="notes" label="Anything else we should know?" area ph="What you are best at, what you would rather not touch, who sent you" />
+              <p className="text-sm text-ink-muted">
+                By submitting you agree to the{" "}
+                <Link href="/privacy" className="font-medium text-brand-600 underline-offset-4 hover:underline">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
             </FormCard>
           </Reveal>
 
@@ -612,29 +699,26 @@ export default function Contractors() {
       {/* Sticky submit. When a tap on Submit does nothing, the reason has to be right here
           next to the button, not somewhere up the page the user has to go hunting for. */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-md">
-        <div className="container max-w-3xl py-3">
-          <div className="flex items-center gap-4">
-            <p
-              aria-live="polite"
-              className={cn("flex-1 text-[13px] leading-snug", bad.length ? "font-semibold text-destructive" : "text-ink-muted")}
-            >
-              {bad.length
-                ? `Still needed: ${bad.slice(0, 3).map((k) => LABELS[k] || k).join(", ")}${bad.length > 3 ? `, and ${bad.length - 3} more` : ""}`
-                : pct === 100
-                  ? "Looks complete."
-                  : `${need.length - got} left. Takes about four minutes.`}
-            </p>
-            <Button type="submit" size="lg" disabled={sending} onClick={onSubmit} className="shrink-0">
-              {sending ? "Sending..." : "Submit"}
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-ink-muted">
-            By submitting you agree to the{" "}
-            <Link href="/privacy" className="font-medium text-brand-600 underline-offset-4 hover:underline">
-              Privacy Policy
-            </Link>
-            .
+        <div className="container flex max-w-3xl items-center gap-3 py-2 sm:gap-4 sm:py-3">
+          <p
+            aria-live="polite"
+            className={cn("flex-1 text-xs leading-snug sm:text-[13px]", bad.length ? "font-semibold text-destructive" : "text-ink-muted")}
+          >
+            {bad.length
+              ? `Still needed: ${bad.slice(0, 3).map((k) => LABELS[k] || k).join(", ")}${bad.length > 3 ? `, and ${bad.length - 3} more` : ""}`
+              : pct === 100
+                ? "Looks complete."
+                : `${need.length - got} left. Takes about four minutes.`}
           </p>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={sending}
+            onClick={onSubmit}
+            className={cn("shrink-0 max-sm:h-11 max-sm:px-6 max-sm:text-[15px]", got < need.length && !sending && "opacity-75")}
+          >
+            {sending ? "Sending..." : "Submit"}
+          </Button>
         </div>
       </div>
     </SiteLayout>
@@ -691,7 +775,13 @@ type FieldCtx = {
   bad: string[];
   picks: Vals;
   pick: (k: string, v: string) => void;
+  touch: (k: string) => void;
 };
+
+/** Joins the help and error ids a control should be described by. */
+function describedBy(id: string, hint: boolean, invalid: boolean) {
+  return [hint && `${id}-help`, invalid && `${id}-error`].filter(Boolean).join(" ") || undefined;
+}
 
 function Req({ req }: { req?: boolean }) {
   return req
@@ -701,10 +791,10 @@ function Req({ req }: { req?: boolean }) {
 
 function Err({ k, msg, bad }: { k: string; msg: string; bad: string[] }) {
   if (!bad.includes(k)) return null;
-  return <p className="field-error" role="alert">{msg}</p>;
+  return <p id={`jmc-${k}-error`} className="field-error" role="alert">{msg}</p>;
 }
 
-function Text(p: FieldCtx & { k: string; label: string; hint?: string; req?: boolean; ph?: string; type?: string; area?: boolean }) {
+function Text(p: FieldCtx & { k: string; label: string; hint?: string; req?: boolean; ph?: string; type?: string; area?: boolean; err?: string }) {
   const id = `jmc-${p.k}`;
   const invalid = p.bad.includes(p.k);
   const common = {
@@ -713,8 +803,9 @@ function Text(p: FieldCtx & { k: string; label: string; hint?: string; req?: boo
     placeholder: p.ph,
     className: cn("field", p.area && "min-h-[7rem] resize-y"),
     "aria-invalid": invalid ? ("true" as const) : undefined,
-    "aria-describedby": p.hint ? `${id}-help` : undefined,
+    "aria-describedby": describedBy(id, !!p.hint, invalid),
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => p.set(p.k, e.target.value),
+    onBlur: () => p.touch(p.k),
   };
   return (
     <div data-field={p.k}>
@@ -730,7 +821,7 @@ function Text(p: FieldCtx & { k: string; label: string; hint?: string; req?: boo
         />
       )}
       {p.hint ? <p id={`${id}-help`} className="field-help">{p.hint}</p> : null}
-      <Err k={p.k} msg="We need this one." bad={p.bad} />
+      <Err k={p.k} msg={p.err || `Please enter ${LABELS[p.k] || "this"}.`} bad={p.bad} />
     </div>
   );
 }
@@ -749,8 +840,9 @@ function Select(p: FieldCtx & { k: string; label: string; req?: boolean; opts: s
           value={p.vals[p.k] || ""}
           className="field appearance-none pr-11"
           aria-invalid={invalid ? "true" : undefined}
-          aria-describedby={p.hint ? `${id}-help` : undefined}
+          aria-describedby={describedBy(id, !!p.hint, invalid)}
           onChange={(e) => p.set(p.k, e.target.value)}
+          onBlur={() => p.touch(p.k)}
         >
           <option value="">Select</option>
           {p.opts.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -758,24 +850,31 @@ function Select(p: FieldCtx & { k: string; label: string; req?: boolean; opts: s
         <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
       </div>
       {p.hint ? <p id={`${id}-help`} className="field-help">{p.hint}</p> : null}
-      <Err k={p.k} msg="Pick one." bad={p.bad} />
+      <Err k={p.k} msg="Please choose one." bad={p.bad} />
     </div>
   );
 }
 
 function Pills(p: FieldCtx & { k: string; label: string; req?: boolean; hint?: string; opts: Array<[string, string]> }) {
   const id = `jmc-${p.k}`;
+  const invalid = p.bad.includes(p.k);
   return (
     <div data-field={p.k}>
       <span className="field-label" id={`${id}-label`}>{p.label}<Req req={p.req} /></span>
-      <div className="flex flex-wrap gap-2" role="group" aria-labelledby={`${id}-label`}>
+      <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-labelledby={`${id}-label`}
+        aria-invalid={invalid ? "true" : undefined}
+        aria-describedby={describedBy(id, !!p.hint, invalid)}
+      >
         {p.opts.map(([v, t]) => (
           <button type="button" key={v} className="pill" aria-pressed={p.picks[p.k] === v}
             onClick={() => p.pick(p.k, v)}>{t}</button>
         ))}
       </div>
-      {p.hint ? <p className="field-help">{p.hint}</p> : null}
-      <Err k={p.k} msg="Pick one." bad={p.bad} />
+      {p.hint ? <p id={`${id}-help`} className="field-help">{p.hint}</p> : null}
+      <Err k={p.k} msg="Please choose one." bad={p.bad} />
     </div>
   );
 }
@@ -789,6 +888,7 @@ function Consent(p: FieldCtx & { k: string; text: string }) {
       <label htmlFor={id} className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5">
         <input
           id={id}
+          name={p.k}
           type="checkbox"
           checked={on}
           onChange={(e) => p.pick(p.k, e.target.checked ? "yes" : "no")}
