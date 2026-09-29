@@ -1,149 +1,248 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, DollarSign, Landmark, GraduationCap, Bot, Video, Mic, Home } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import {
+  ArrowUpRight,
+  Bot,
+  Briefcase,
+  DollarSign,
+  GraduationCap,
+  Home,
+  Landmark,
+  Mic,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CtaBand, PageHero, Reveal, Section, SectionHeading, SiteLayout } from "@/components/site";
 import { useRouteSeo } from "@/hooks/useSeo";
+
+type Resource = {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  buttonText: string;
+  url: string;
+};
+
+const DEAL_FINDER_URL =
+  "https://insiders.itsjoshmoore.com/courses/offers/3f5a5bf0-ec56-4752-ba1f-db9a1a4ab985";
+
+const lendingResources: Resource[] = [
+  {
+    icon: Briefcase,
+    title: "Creative finance-friendly insurance",
+    description: "National coverage for investors using creative strategies.",
+    buttonText: "Get a quote",
+    url: "http://joshmoore.steadilypartner.com",
+  },
+  {
+    icon: DollarSign,
+    title: "Construction and hard money loans",
+    description: "90% LTV, 100% construction and LTC, and fast closings for fix and flips.",
+    buttonText: "Learn more",
+    url: "https://www.investorloandirect.com",
+  },
+  {
+    icon: Landmark,
+    title: "Investment loans",
+    description: "Flexible financing for fix and flip projects.",
+    buttonText: "Apply now",
+    url: "https://www.investorloandirect.com",
+  },
+];
+
+const aiResources: Resource[] = [
+  {
+    icon: Bot,
+    title: "Manus AI invite and credits",
+    description: "An AI agent that can do and automate work for you. My invite comes with free credits.",
+    buttonText: "Get free access",
+    url: "https://manus.im/invitation/BNVT5F5DQEDYM",
+  },
+  {
+    icon: Video,
+    title: "OpusClip AI editor",
+    description: "Turn one long form video into a pile of short form clips, cut by AI.",
+    buttonText: "Try OpusClip",
+    url: "https://www.opus.pro/?via=26834d",
+  },
+  {
+    icon: Mic,
+    title: "ElevenLabs AI",
+    description: "Create custom voices or clone your own and have them say anything.",
+    buttonText: "Try ElevenLabs",
+    url: "https://try.elevenlabs.io/joshmooreinvests",
+  },
+];
+
+const housingResources: Resource[] = [
+  {
+    icon: Home,
+    title: "Padsplit",
+    description: "Raise the cash flow on a house by renting it room by room, with co-living through Padsplit.",
+    buttonText: "Get started",
+    url: "https://www.padsplit.com/hosts?referral=041351CD&ref_source=link&ref_device=desktop&ref_role=af",
+  },
+];
+
+/** External link button, always a new tab. */
+function ExternalButton({
+  href,
+  children,
+  variant = "outline",
+}: {
+  href: string;
+  children: string;
+  variant?: "outline" | "light" | "default";
+}) {
+  return (
+    <Button asChild variant={variant}>
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        {children}
+        <ArrowUpRight />
+      </a>
+    </Button>
+  );
+}
+
+/** One resource in a grid: navy icon square, title, one line, one button. */
+function ResourceCard({ resource }: { resource: Resource }) {
+  const Icon = resource.icon;
+  return (
+    <article className="surface flex h-full flex-col p-7">
+      <span className="flex size-12 items-center justify-center rounded-2xl bg-navy text-white">
+        <Icon className="size-6" strokeWidth={1.75} />
+      </span>
+      <h3 className="mt-6 text-2xl">{resource.title}</h3>
+      <p className="mt-2.5 flex-1 text-[15px] leading-relaxed text-ink-soft">{resource.description}</p>
+      <div className="mt-6">
+        <ExternalButton href={resource.url}>{resource.buttonText}</ExternalButton>
+      </div>
+    </article>
+  );
+}
+
+/** A single resource that gets the whole row: icon and copy left, button right. */
+function ResourceRow({ resource }: { resource: Resource }) {
+  const Icon = resource.icon;
+  return (
+    <article className="surface flex flex-col gap-6 p-7 md:flex-row md:items-center md:gap-8 md:p-9">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-navy text-white">
+        <Icon className="size-6" strokeWidth={1.75} />
+      </span>
+      <div className="flex-1">
+        <h3 className="text-2xl">{resource.title}</h3>
+        <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-soft">{resource.description}</p>
+      </div>
+      <div className="shrink-0">
+        <ExternalButton href={resource.url}>{resource.buttonText}</ExternalButton>
+      </div>
+    </article>
+  );
+}
 
 export default function Resources() {
   useRouteSeo("/resources");
 
-  const sections = [
-    {
-      title: "Financial & Lending Resources",
-      resources: [
-        {
-          icon: Briefcase,
-          title: "Creative Finance-Friendly Insurance",
-          description: "National coverage for investors using creative strategies",
-          buttonText: "Get Quote",
-          url: "http://joshmoore.steadilypartner.com",
-        },
-        {
-          icon: DollarSign,
-          title: "Construction & Hard Money Loans",
-          description: "90% LTV | 100% Construction/LTC | Fast closings for fix & flips",
-          buttonText: "Learn More",
-          url: "https://www.investorloandirect.com",
-        },
-        {
-          icon: Landmark,
-          title: "Investment Loans",
-          description: "Flexible financing for fix and flip projects",
-          buttonText: "Apply Now",
-          url: "https://www.investorloandirect.com",
-        },
-      ],
-    },
-
-    {
-      title: "Free Education & Community",
-      resources: [
-        {
-          icon: GraduationCap,
-          title: "Free Training - West Michigan Deal Finder Academy",
-          description: "Free training to teach aspiring West Michigan entrepreneurs how they can make thousands of dollars for free working to help me find houses to buy",
-          buttonText: "Join Free",
-          url: "https://insiders.itsjoshmoore.com/courses/offers/3f5a5bf0-ec56-4752-ba1f-db9a1a4ab985",
-        },
-      ],
-    },
-
-    {
-      title: "AI Resources",
-      resources: [
-        {
-          icon: Bot,
-          title: "Free Manus AI Invite & Credits",
-          description: "Do and automate anything with this futuristic AI agent.",
-          buttonText: "Get Free Access",
-          url: "https://manus.im/invitation/BNVT5F5DQEDYM",
-        },
-        {
-          icon: Video,
-          title: "OpusClip AI Editor",
-          description: "Use AI to turn your long form video into a treasure trove of short form content.",
-          buttonText: "Try OpusClip",
-          url: "https://www.opus.pro/?via=26834d",
-        },
-        {
-          icon: Mic,
-          title: "ElevenLabs AI",
-          description: "Create custom voices or clone your own and have them say anything.",
-          buttonText: "Try ElevenLabs",
-          url: "https://try.elevenlabs.io/joshmooreinvests",
-        },
-      ],
-    },
-
-    {
-      title: "Housing Resources",
-      resources: [
-        {
-          icon: Home,
-          title: "Padsplit",
-          description: "Level up your cashflow through Co-Living with Padsplit.",
-          buttonText: "Get Started",
-          url: "https://www.padsplit.com/hosts?referral=041351CD&ref_source=link&ref_device=desktop&ref_role=af",
-        },
-      ],
-    },
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      
-      <main className="flex-1 py-20">
-        <div className="container space-y-16">
-          {/* Page Header */}
-          <div className="text-center space-y-4 max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-bold">Resources</h1>
-            <p className="text-lg md:text-xl text-muted-foreground">
-              Curated tools, services, and educational resources to help you succeed in real estate investing
-            </p>
-          </div>
+    <SiteLayout>
+      <PageHero
+        tone="paper"
+        eyebrow="Resources"
+        title="Tools and services I actually use."
+        lede="The insurance, lenders, training and software I point people to when they ask. Some of these are referral links, so I may get a credit or a commission if you sign up through them."
+      />
 
-          {/* Resource Sections */}
-          {sections.map((section, idx) => (
-            <div key={idx} className="space-y-8">
-              <h2 className="text-3xl font-bold">{section.title}</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {section.resources.map((resource, ridx) => {
-                  const Icon = resource.icon;
-                  return (
-                    <Card 
-                      key={ridx} 
-                      className="group hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-primary/50 overflow-hidden relative"
-                    >
-                      <CardHeader>
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="p-2 bg-gradient-to-br from-primary to-blue-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform">
-                            <Icon className="h-6 w-6 text-white" />
-                          </div>
-                        </div>
-                        <CardTitle className="text-xl">{resource.title}</CardTitle>
-                        <CardDescription className="text-base">{resource.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <a
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
-                        >
-                          {resource.buttonText}
-                        </a>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
+      {/* Insurance and lending */}
+      <Section tone="white">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Insurance and lending"
+            title="Financial and lending resources"
+            lede="Coverage that understands creative deals, and business purpose loans for the projects that need them."
+          />
+        </Reveal>
+        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {lendingResources.map((resource, i) => (
+            <Reveal key={resource.title} delay={0.05 * i}>
+              <ResourceCard resource={resource} />
+            </Reveal>
           ))}
         </div>
-      </main>
+      </Section>
 
-      <Footer />
-    </div>
+      {/* Free education and community */}
+      <Section tone="paper" className="dots-paper">
+        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+          <Reveal>
+            <div className="overflow-hidden rounded-[2rem] shadow-lift">
+              <img
+                src="/media-kit/assets/josh-moore-yellow-shirt.jpg"
+                alt="Josh Moore"
+                width={1279}
+                height={1280}
+                loading="lazy"
+                className="aspect-square w-full object-cover object-[50%_25%]"
+              />
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-navy text-white">
+              <GraduationCap className="size-6" strokeWidth={1.75} />
+            </span>
+            <SectionHeading
+              className="mt-6"
+              eyebrow="Free education and community"
+              title="West Michigan Deal Finder Academy"
+              lede="Free training for West Michigan locals who want to learn how to find off-market houses and get paid a finder's fee when I buy one."
+            />
+            <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-ink-soft">
+              No experience needed, no money down and no license. If you know your
+              neighborhood and can hold a conversation, you can do this.
+            </p>
+            <div className="mt-8">
+              <ExternalButton href={DEAL_FINDER_URL} variant="default">
+                Join Free
+              </ExternalButton>
+            </div>
+          </Reveal>
+        </div>
+      </Section>
+
+      {/* AI tools */}
+      <Section tone="white">
+        <Reveal>
+          <SectionHeading
+            eyebrow="AI tools"
+            title="The software behind the content."
+            lede="What I use to edit, voice and automate the work that goes out under my name."
+          />
+        </Reveal>
+        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {aiResources.map((resource, i) => (
+            <Reveal key={resource.title} delay={0.05 * i}>
+              <ResourceCard resource={resource} />
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      {/* Housing */}
+      <Section tone="paper">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Housing"
+            title="More cash flow from the same house."
+          />
+        </Reveal>
+        <div className="mt-10 space-y-5">
+          {housingResources.map((resource, i) => (
+            <Reveal key={resource.title} delay={0.05 * i}>
+              <ResourceRow resource={resource} />
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      <CtaBand />
+    </SiteLayout>
   );
 }

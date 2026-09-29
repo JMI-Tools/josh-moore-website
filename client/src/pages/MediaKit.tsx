@@ -461,7 +461,7 @@ export default function MediaKit() {
               </span>
               <span>
                 Explore my work
-                <small>Investment criteria, projects, and collaboration</small>
+                <small>Buying criteria, projects, and collaboration</small>
               </span>
               <ArrowRight size={20} />
             </a>

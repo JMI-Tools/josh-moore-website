@@ -6,21 +6,12 @@
     <meta name="robots" content="noindex" />
     <title>Page Not Found | Josh Moore</title>
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet" />
     <style>
-      :root {
-        --ink: #0a1628;
-        --muted: #5b6b7f;
-        --line: #e2e8f0;
-        --accent: #2563eb;
-        --page: #f8fafc;
-      }
-
+      /*
+        Static 404. Mirrors client/src/pages/NotFound.tsx: navy page, white
+        type, one button home. System font only, so nothing has to load
+        before the page reads.
+      */
       * {
         box-sizing: border-box;
       }
@@ -34,128 +25,81 @@
       body {
         min-height: 100vh;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 2rem 1.25rem;
-        background: var(--page);
-        color: var(--ink);
-        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-          Roboto, Helvetica, Arial, sans-serif;
+        padding: 4rem 1.25rem;
+        text-align: center;
+        color: #ffffff;
+        background-color: #0a1e32;
+        background-image:
+          radial-gradient(60% 60% at 70% 20%, rgba(77, 146, 208, 0.28) 0%, rgba(77, 146, 208, 0) 70%),
+          radial-gradient(40% 40% at 10% 90%, rgba(77, 146, 208, 0.14) 0%, rgba(77, 146, 208, 0) 70%);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         line-height: 1.6;
       }
 
-      main {
-        width: 100%;
-        max-width: 34rem;
-        background: #ffffff;
-        border: 1px solid var(--line);
-        border-radius: 1rem;
-        padding: 3rem 2.25rem;
-        text-align: center;
-        box-shadow: 0 1px 3px rgba(10, 22, 40, 0.06);
-      }
-
       .logo {
-        height: 3.25rem;
-        width: 3.25rem;
-        border-radius: 0.625rem;
-        margin: 0 auto 2rem;
         display: block;
+        height: 3.5rem;
+        width: auto;
+        margin: 0 auto 3rem;
       }
 
-      .code {
+      .eyebrow {
         margin: 0;
         font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.18em;
+        font-weight: 600;
+        letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--accent);
+        color: #dbe9f7;
       }
 
       h1 {
-        margin: 0.75rem 0 0;
-        font-size: 1.875rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        line-height: 1.2;
-      }
-
-      p {
         margin: 1rem 0 0;
-        color: var(--muted);
-        font-size: 1.0625rem;
+        font-size: clamp(2.75rem, 6.2vw, 5rem);
+        font-weight: 700;
+        line-height: 0.98;
+        letter-spacing: -0.03em;
       }
 
-      .actions {
-        margin-top: 2rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        justify-content: center;
+      p.line {
+        margin: 1.5rem auto 0;
+        max-width: 28rem;
+        font-size: 1.125rem;
+        color: rgba(255, 255, 255, 0.78);
       }
 
       a.button {
-        display: inline-block;
-        padding: 0.75rem 1.5rem;
-        border-radius: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2.25rem;
+        height: 3.25rem;
+        padding: 0 2rem;
+        border-radius: 999px;
+        font-size: 1rem;
         font-weight: 600;
-        font-size: 0.9375rem;
         text-decoration: none;
-        border: 1px solid transparent;
-        transition: background-color 0.15s ease, border-color 0.15s ease;
-      }
-
-      a.primary {
-        background: var(--accent);
-        color: #ffffff;
-      }
-
-      a.primary:hover {
-        background: #1d4ed8;
-      }
-
-      a.secondary {
+        color: #0a1e32;
         background: #ffffff;
-        color: var(--ink);
-        border-color: var(--line);
+        transition: background-color 0.2s ease;
       }
 
-      a.secondary:hover {
-        border-color: #cbd5e1;
+      a.button:hover {
+        background: #f5f3ee;
       }
 
-      .links {
-        margin-top: 2rem;
-        padding-top: 1.5rem;
-        border-top: 1px solid var(--line);
-        font-size: 0.875rem;
-        color: var(--muted);
+      a.button:focus-visible {
+        outline: 3px solid rgba(77, 146, 208, 0.4);
+        outline-offset: 2px;
       }
 
-      .links a {
-        color: var(--muted);
-        text-decoration: none;
-        white-space: nowrap;
-      }
-
-      .links a:hover {
-        color: var(--ink);
-        text-decoration: underline;
-      }
-
-      .links span {
-        margin: 0 0.5rem;
-        color: var(--line);
-      }
-
-      @media (max-width: 30rem) {
-        main {
-          padding: 2.25rem 1.5rem;
-        }
-
-        h1 {
-          font-size: 1.5rem;
+      @media (min-width: 768px) {
+        p.line {
+          font-size: 1.25rem;
         }
       }
     </style>
@@ -163,31 +107,13 @@
 
   <body>
     <main>
-      <!--
-        The JM monogram (34 KB). Deliberately NOT /logo-jm.png or the CloudFront
-        header logo: both are the full-resolution 1536x1024 mockup (2.0 MB / 2.2 MB)
-        and this element renders it 52px tall.
-      -->
-      <img class="logo" src="/apple-touch-icon.png" width="180" height="180" alt="Josh Moore" />
-
-      <p class="code">Error 404</p>
-      <h1>This page doesn't exist</h1>
-      <p>
-        The link may be out of date, or the address may have been typed
-        incorrectly. Everything else is still where you left it.
-      </p>
-
-      <div class="actions">
-        <a class="button primary" href="/">Back to homepage</a>
-        <a class="button secondary" href="/contact">Get in touch</a>
-      </div>
-
-      <div class="links">
-        <a href="/about">About</a><span>&middot;</span>
-        <a href="/buy-box">Buy Box</a><span>&middot;</span>
-        <a href="/submit-deal">Submit a Deal</a><span>&middot;</span>
-        <a href="/resources">Resources</a>
-      </div>
+      <a href="/" aria-label="Josh Moore, home">
+        <img class="logo" src="/logo-jm-480.webp" width="96" height="64" alt="Josh Moore" />
+      </a>
+      <p class="eyebrow">Error</p>
+      <h1>404</h1>
+      <p class="line">That page is not here.</p>
+      <a class="button" href="/">Back to the homepage <span aria-hidden="true">&rarr;</span></a>
     </main>
   </body>
 </html>

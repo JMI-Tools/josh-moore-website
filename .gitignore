@@ -111,3 +111,5 @@ temp/
 
 # Manus build-tool artifacts (contain DB connection details)
 .manus/
+.vercel
+.env*

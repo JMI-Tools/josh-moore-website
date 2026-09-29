@@ -1,15 +1,23 @@
 import { Link } from "wouter";
+import {
+  ArrowRight,
+  Building,
+  Check,
+  Factory,
+  Home as HomeIcon,
+  Tent,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, MapPin, DollarSign, Home, Building2, Caravan, Target, XCircle, TrendingUp } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { CtaBand, PageHero, Reveal, Section, SiteLayout } from "@/components/site";
 import { useRouteSeo } from "@/hooks/useSeo";
 
 interface BuyBoxCard {
+  id: string;
   title: string;
-  icon: React.ElementType;
-  gradient: string;
+  shortTitle: string;
+  icon: LucideIcon;
   investmentGoal: string;
   criteria: { label: string; value: string }[];
   dealKillers?: string[];
@@ -19,14 +27,15 @@ interface BuyBoxCard {
 
 const cards: BuyBoxCard[] = [
   {
+    id: "single-family",
     title: "Single Family Residential",
-    icon: Home,
-    gradient: "from-primary/20 to-blue-500/20",
+    shortTitle: "Single family",
+    icon: HomeIcon,
     investmentGoal: "Fix & Flip",
     criteria: [
       { label: "Max Purchase Price", value: "$400,000" },
       { label: "Offer Formula", value: "70% of ARV minus repairs" },
-      { label: "Condition", value: "All conditions accepted — no fire damage, no foundation damage" },
+      { label: "Condition", value: "All conditions accepted. No fire damage, no foundation damage" },
       { label: "Minimum", value: "2 bed / 1 bath" },
       { label: "Financing", value: "Cash or seller financing" },
       { label: "Target Counties", value: "Muskegon, Kent, Ottawa, Kalamazoo, Genesee" },
@@ -36,12 +45,13 @@ const cards: BuyBoxCard[] = [
     ctaText: "Have a house deal? Submit it here",
   },
   {
+    id: "commercial-multifamily",
     title: "Commercial Multifamily",
-    icon: Building2,
-    gradient: "from-blue-500/20 to-primary/20",
+    shortTitle: "Commercial multifamily",
+    icon: Building,
     investmentGoal: "Value-Add Acquisitions",
     criteria: [
-      { label: "Unit Count", value: "10–50 units" },
+      { label: "Unit Count", value: "10 to 50 units" },
       { label: "Markets", value: "Midwest primary; strong deals considered nationally" },
       { label: "Financing", value: "Creative financing only" },
     ],
@@ -50,9 +60,10 @@ const cards: BuyBoxCard[] = [
     ctaText: "Have a multifamily deal? Submit it here",
   },
   {
+    id: "mobile-home-park",
     title: "Mobile Home Park",
-    icon: Home,
-    gradient: "from-primary/20 to-blue-500/20",
+    shortTitle: "Mobile home parks",
+    icon: Factory,
     investmentGoal: "Value-Add and Cash Flow",
     criteria: [
       { label: "Min Park Size", value: "30 pads" },
@@ -65,14 +76,18 @@ const cards: BuyBoxCard[] = [
     ctaText: "Have an MHP deal? Submit it here",
   },
   {
+    id: "rv-park",
     title: "RV Park",
-    icon: Caravan,
-    gradient: "from-blue-500/20 to-primary/20",
+    shortTitle: "RV parks",
+    icon: Tent,
     investmentGoal: "Acquire Underperforming or Established Parks",
     criteria: [
-      { label: "Park Types", value: "Transient (near tourism) and long-term (near population centers); mixed-use accepted" },
+      {
+        label: "Park Types",
+        value: "Transient (near tourism) and long-term (near population centers); mixed-use accepted",
+      },
       { label: "Min Park Size", value: "30 pads" },
-      { label: "Markets", value: "Nationwide — no flood zone properties" },
+      { label: "Markets", value: "Nationwide. No flood zone properties" },
       { label: "Financing", value: "Creative financing and seller financing only" },
     ],
     valueAddFocus: ["Operational improvements", "Enhanced amenities", "Rent growth"],
@@ -84,177 +99,140 @@ export default function BuyBox() {
   useRouteSeo("/buy-box");
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-white via-blue-50/30 to-white">
-      <Header />
+    <SiteLayout>
+      <PageHero
+        tone="paper"
+        eyebrow="Buy box"
+        title="What I'm buying right now."
+        lede="Here's what I'm actively looking for. If you have a deal that matches these criteria, submit it and let's make it work for everyone at the table."
+        actions={
+          <>
+            <Button asChild size="lg">
+              <Link href="/submit-deal">
+                Submit a deal
+                <ArrowRight />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link href="/contact">Book a call</Link>
+            </Button>
+          </>
+        }
+      />
 
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-secondary via-secondary/95 to-primary/90 text-white py-20">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-96 h-96 bg-primary rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000"></div>
-          </div>
+      {/* Jump links */}
+      <div className="border-b border-line bg-white">
+        <nav
+          aria-label="Buying criteria by asset class"
+          className="container flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:gap-6"
+        >
+          <p className="eyebrow eyebrow-line shrink-0">Buying criteria</p>
+          <ul className="flex flex-wrap gap-2">
+            {cards.map((card) => (
+              <li key={card.id}>
+                <a
+                  href={`#${card.id}`}
+                  className="inline-flex min-h-11 items-center rounded-full border border-navy/15 bg-white px-4 text-sm font-medium text-navy transition-colors hover:border-navy hover:bg-navy/5"
+                >
+                  {card.shortTitle}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
 
-          <div className="container relative z-10 text-center space-y-6 max-w-4xl mx-auto">
-            <div className="inline-block">
-              <span className="px-4 py-2 bg-primary/20 backdrop-blur-sm rounded-full text-sm font-semibold border border-primary/30">
-                Investment Criteria
-              </span>
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold">My Buy Box</h1>
-            <p className="text-xl md:text-2xl text-blue-100">
-              Here's what I'm actively looking for. If you have a deal that matches these criteria, submit it and let's create a win-win situation.
-            </p>
-          </div>
+      {/* Cards */}
+      <Section tone="paper" containerClassName="max-w-6xl space-y-8">
+        {cards.map((card, i) => {
+          const Icon = card.icon;
+          return (
+            <Reveal key={card.id} delay={0.05 * i}>
+              <article id={card.id} className="surface scroll-mt-28 overflow-hidden">
+                {/* Card header */}
+                <header className="flex flex-col gap-5 border-b border-line p-7 sm:flex-row sm:items-center md:px-9">
+                  <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-navy text-white">
+                    <Icon className="size-7" strokeWidth={1.75} />
+                  </span>
+                  <div>
+                    <h2 className="text-3xl md:text-[2rem]">{card.title}</h2>
+                    <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                      <span className="eyebrow">Goal</span>
+                      <span className="text-[15px] font-medium text-navy">{card.investmentGoal}</span>
+                    </p>
+                  </div>
+                </header>
 
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto">
-              <path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z" fill="rgb(248, 250, 252)"/>
-            </svg>
-          </div>
-        </section>
-
-        {/* Buy Box Cards */}
-        <section className="py-20">
-          <div className="container max-w-6xl space-y-12">
-            {cards.map((card, idx) => {
-              const Icon = card.icon;
-              return (
-                <Card key={idx} className="overflow-hidden border-2 hover:border-primary/50 hover:shadow-2xl transition-all group relative">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`}></div>
-
-                  {/* Card Header */}
-                  <CardHeader className="bg-gradient-to-r from-secondary/10 to-primary/10 relative z-10">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <div className="p-3 bg-gradient-to-br from-primary to-blue-600 rounded-xl shadow-lg w-fit">
-                        <Icon className="h-8 w-8 text-white" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-3xl">{card.title}</CardTitle>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Target className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-semibold text-primary uppercase tracking-wide">
-                            Investment Goal: {card.investmentGoal}
-                          </span>
+                <div className="grid gap-10 p-7 md:grid-cols-[1.15fr_0.85fr] md:px-9 md:py-8">
+                  {/* Criteria */}
+                  <div>
+                    <h3 className="text-lg">Buying criteria</h3>
+                    <dl className="mt-4 divide-y divide-line border-y border-line">
+                      {card.criteria.map((item) => (
+                        <div key={item.label} className="grid gap-1 py-3.5 sm:grid-cols-[11rem_1fr] sm:gap-6">
+                          <dt className="text-sm font-semibold text-ink-muted">{item.label}</dt>
+                          <dd className="text-[15px] leading-relaxed text-navy">{item.value}</dd>
                         </div>
-                      </div>
-                    </div>
-                  </CardHeader>
+                      ))}
+                    </dl>
+                  </div>
 
-                  <CardContent className="pt-8 pb-8 relative z-10 space-y-8">
-                    <div className="grid md:grid-cols-2 gap-8">
-
-                      {/* Key Criteria */}
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <MapPin className="h-5 w-5 text-primary" />
-                          </div>
-                          <h3 className="font-bold text-lg">Key Criteria</h3>
-                        </div>
-                        <dl className="space-y-3">
-                          {card.criteria.map((item, i) => (
-                            <div key={i} className="flex flex-col sm:flex-row sm:gap-2">
-                              <dt className="font-semibold text-foreground min-w-[160px] shrink-0">{item.label}:</dt>
-                              <dd className="text-muted-foreground">{item.value}</dd>
-                            </div>
+                  <div className="space-y-5">
+                    {/* Deal killers */}
+                    {card.dealKillers && (
+                      <div className="rounded-2xl border border-destructive/15 bg-destructive/5 p-5">
+                        <h3 className="flex items-center gap-2 text-base text-destructive">
+                          <XCircle className="size-5" strokeWidth={2} />
+                          Deal killers
+                        </h3>
+                        <ul className="mt-3 space-y-2">
+                          {card.dealKillers.map((killer) => (
+                            <li key={killer} className="flex items-start gap-2.5 text-[15px] leading-snug text-ink">
+                              <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                              {killer}
+                            </li>
                           ))}
-                        </dl>
+                        </ul>
                       </div>
+                    )}
 
-                      <div className="space-y-8">
-                        {/* Deal Killers */}
-                        {card.dealKillers && (
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2 mb-4">
-                              <div className="p-2 bg-red-100 rounded-lg">
-                                <XCircle className="h-5 w-5 text-red-500" />
-                              </div>
-                              <h3 className="font-bold text-lg text-red-600">Deal Killers</h3>
-                            </div>
-                            <ul className="space-y-2">
-                              {card.dealKillers.map((killer, i) => (
-                                <li key={i} className="flex items-start gap-3">
-                                  <span className="text-red-500 mt-1 text-xl">✕</span>
-                                  <span className="text-muted-foreground">{killer}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Value-Add Focus */}
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 mb-4">
-                            <div className="p-2 bg-green-100 rounded-lg">
-                              <TrendingUp className="h-5 w-5 text-green-600" />
-                            </div>
-                            <h3 className="font-bold text-lg text-green-700">Value-Add Focus</h3>
-                          </div>
-                          <ul className="space-y-2">
-                            {card.valueAddFocus.map((item, i) => (
-                              <li key={i} className="flex items-start gap-3">
-                                <span className="text-green-600 mt-1 text-xl">✓</span>
-                                <span className="text-muted-foreground">{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
+                    {/* Value-add focus */}
+                    <div className="rounded-2xl border border-line bg-paper p-5">
+                      <h3 className="text-base">Value-add focus</h3>
+                      <ul className="mt-3 space-y-2">
+                        {card.valueAddFocus.map((item) => (
+                          <li key={item} className="flex items-start gap-2.5 text-[15px] leading-snug text-ink">
+                            <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-navy text-white">
+                              <Check className="size-3" strokeWidth={3} />
+                            </span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
+                  </div>
+                </div>
 
-                    {/* CTA Button */}
-                    <div className="pt-4 border-t border-border">
-                      <Link href="/submit-deal">
-                        <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white text-base px-6 py-3 shadow-md hover:shadow-lg transition-all hover:scale-105">
-                          {card.ctaText}
-                          <ArrowRight className="ml-2 h-5 w-5" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
+                {/* CTA */}
+                <div className="border-t border-line p-7 md:px-9 md:py-6">
+                  <Button asChild className="w-full sm:w-auto">
+                    <Link href="/submit-deal">
+                      {card.ctaText}
+                      <ArrowRight />
+                    </Link>
+                  </Button>
+                </div>
+              </article>
+            </Reveal>
+          );
+        })}
+      </Section>
 
-        {/* Bottom CTA */}
-        <section className="py-20 bg-gradient-to-br from-secondary via-primary to-secondary text-white relative overflow-hidden">
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000"></div>
-          </div>
-
-          <div className="container relative z-10 text-center space-y-8 max-w-4xl mx-auto">
-            <h2 className="text-4xl md:text-5xl font-bold">Ready to Submit Your Deal?</h2>
-            <p className="text-xl md:text-2xl text-blue-100">
-              If your property matches any of these criteria, I want to hear from you.
-            </p>
-            <Link href="/submit-deal">
-              <Button size="lg" className="bg-white text-secondary hover:bg-blue-50 text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
-                Submit a Deal Now
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-          </div>
-        </section>
-      </main>
-
-      <Footer />
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 0.2; }
-          50% { opacity: 0.3; }
-        }
-        .animate-pulse {
-          animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        .delay-1000 {
-          animation-delay: 2s;
-        }
-      `}</style>
-    </div>
+      <CtaBand
+        title="Have a deal that fits?"
+        lede="If your property matches any of these criteria, I want to hear from you."
+        primaryLabel="Submit a deal"
+      />
+    </SiteLayout>
   );
 }

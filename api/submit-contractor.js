@@ -8,6 +8,11 @@
 //   submissions  the raw payload, immutable, never rewritten
 //   contractors  the working row
 // If the form changes later, nothing already collected is lost or reshaped.
+//
+// After the writes land, Josh gets an email through api/_lib/notify.js. The alert
+// never fails the submission; if it cannot send, it logs and the row still stands.
+
+import { notifyJosh } from './_lib/notify.js';
 
 const DB_URL = process.env.TURSO_CONTRACTOR_URL;
 const DB_TOKEN = process.env.TURSO_CONTRACTOR_TOKEN;
@@ -46,6 +51,75 @@ function clean(s, max) {
   return kept.trim().slice(0, max) || null;
 }
 
+// Plain labeled summary for the alert email. Blank answers are left out so the
+// email reads as a list of what the contractor actually said.
+function summarize(d, ctx) {
+  const yn = (v) => (v ? 'yes' : 'no');
+  const list = (arr) => (arr && arr.length ? arr.join(', ') : null);
+  const row = (label, value) => (value === null || value === undefined || value === '' ? null : label + ': ' + value);
+  const lic = d.license || {};
+  const ins = d.insurance || {};
+  const avail = d.availability || {};
+  const links = d.links || {};
+  const refs = ctx.refs
+    .filter((r) => r.name || r.phone)
+    .map((r, i) => 'Reference ' + (i + 1) + ': ' + [r.name, r.phone].filter(Boolean).join(', '));
+
+  const lines = [
+    row('Name', ctx.name),
+    row('Company', clean(d.company, 160)),
+    row('Phone', ctx.phone),
+    row('Number takes texts', yn(d.smsCapable)),
+    row('SMS consent', ctx.smsConsent),
+    row('Email', ctx.email),
+    row('Best way to reach', clean(d.contactPref, 20)),
+    '',
+    row('Trades', list(ctx.trades)),
+    row('Main trade', clean(d.primaryTrade, 60)),
+    row('Years doing this', clean(d.years, 40)),
+    row('Crew', clean(d.crew, 40)),
+    row('Jobs at once', clean(d.capacity, 10)),
+    '',
+    row('How they work', clean(d.licenseType, 40)),
+    row('License', d.licensed
+      ? [clean(lic.kind, 120), clean(lic.number, 80), clean(lic.state, 10), lic.expires ? 'expires ' + clean(lic.expires, 20) : null].filter(Boolean).join(', ') || 'yes'
+      : null),
+    row('General liability', d.insured
+      ? [clean(ins.carrier, 120), clean(ins.coverage, 40), ins.expires ? 'expires ' + clean(ins.expires, 20) : null, 'COI on request: ' + yn(ins.coiAvailable)].filter(Boolean).join(', ')
+      : 'no'),
+    row('Workers comp', clean(d.workersComp, 20)),
+    '',
+    row('Counties', list(ctx.areas)),
+    row('Travel', clean(d.radius, 60)),
+    row('Would rather not go', clean(d.areasAvoid, 200)),
+    '',
+    row('Pricing', clean(d.pricingModel, 20)),
+    row('Rate', clean(d.rate, 120)),
+    row('1099 ready', clean(d.accepts1099, 20)),
+    row('Lead time', clean(avail.leadTime, 40)),
+    row('Weekends', clean(avail.weekends, 20)),
+    '',
+    row('Website', clean(links.website, 300)),
+    row('Facebook', clean(links.facebook, 300)),
+    row('Instagram', clean(links.instagram, 300)),
+    row('Google listing', clean(links.google, 300)),
+    row('Photos', clean(links.photos, 500)),
+    ...refs,
+    '',
+    // Keep the line breaks the contractor typed; clean() would strip them.
+    row('Notes', d.notes == null ? null : String(d.notes).split(/\r?\n/).map((l) => clean(l, 2000)).filter(Boolean).join('\n').slice(0, 2000)),
+    '',
+    row('Source', clean(d.source, 120)),
+    row('Record', ctx.id + (ctx.partial ? ' (raw submission saved, contractor row failed)' : '')),
+  ];
+
+  // Drop empty rows and collapse repeated blank lines.
+  return lines
+    .filter((l) => l !== null)
+    .filter((l, i, arr) => !(l === '' && (i === 0 || arr[i - 1] === '' || i === arr.length - 1)))
+    .join('\n');
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -82,7 +156,15 @@ export default async function handler(req, res) {
   const avail = d.availability || {};
   const links = d.links || {};
 
+  // SMS consent. The contractors table has a fixed 41 column shape, so it rides as
+  // the last line of notes instead of a column of its own. "no" unless they ticked it.
+  const smsConsent = d.smsConsent === 'yes' ? 'yes' : 'no';
+  const notesTyped = clean(d.notes, 2000);
+  const notes = (notesTyped ? notesTyped + '\n\n' : '') + 'SMS consent: ' + smsConsent;
+
   const id = 'ctr_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const alertSubject = 'Website contractor intake: ' + name + ', ' + (clean(d.primaryTrade, 60) || 'trade not given');
+  const alertCtx = { id, name, phone, email, trades, areas, refs, smsConsent };
 
   try {
     await pipeline([
@@ -113,10 +195,12 @@ export default async function handler(req, res) {
           text(clean(avail.leadTime, 40)), text(clean(avail.weekends, 20)),
           text(clean(links.website, 300)), text(clean(links.facebook, 300)), text(clean(links.instagram, 300)),
           text(clean(links.google, 300)), text(clean(links.photos, 500)),
-          json(refs), text(clean(d.notes, 2000)),
+          json(refs), text(notes),
         ],
       },
     ]);
+
+    await notifyJosh({ subject: alertSubject, text: summarize(d, alertCtx), replyTo: email });
 
     return res.status(200).json({ success: true, id });
   } catch (err) {
@@ -133,6 +217,11 @@ export default async function handler(req, res) {
       console.error('[submit-contractor] raw save also failed:', e2 && e2.message);
       return res.status(500).json({ success: false, error: 'We could not save that. Please try again.' });
     }
+    await notifyJosh({
+      subject: alertSubject + ' (partial save)',
+      text: summarize(d, { ...alertCtx, partial: true }),
+      replyTo: email,
+    });
     return res.status(200).json({ success: true, id, partial: true });
   }
 }

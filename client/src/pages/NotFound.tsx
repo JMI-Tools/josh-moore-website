@@ -1,7 +1,6 @@
+import { Link } from "wouter";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle, Home } from "lucide-react";
-import { useLocation } from "wouter";
 import { useSeo } from "@/hooks/useSeo";
 
 export default function NotFound() {
@@ -15,49 +14,30 @@ export default function NotFound() {
     noindex: true,
   });
 
-  const [, setLocation] = useLocation();
-
-  const handleGoHome = () => {
-    setLocation("/");
-  };
-
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-      <Card className="w-full max-w-lg mx-4 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-        <CardContent className="pt-8 pb-8 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="absolute inset-0 bg-red-100 rounded-full animate-pulse" />
-              <AlertCircle className="relative h-16 w-16 text-red-500" />
-            </div>
-          </div>
-
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">404</h1>
-
-          <h2 className="text-xl font-semibold text-slate-700 mb-4">
-            Page Not Found
-          </h2>
-
-          <p className="text-slate-600 mb-8 leading-relaxed">
-            Sorry, the page you are looking for doesn't exist.
-            <br />
-            It may have been moved or deleted.
-          </p>
-
-          <div
-            id="not-found-button-group"
-            className="flex flex-col sm:flex-row gap-3 justify-center"
-          >
-            <Button
-              onClick={handleGoHome}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Home className="w-4 h-4 mr-2" />
-              Go Home
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <main className="glow-brand flex min-h-screen w-full flex-col items-center justify-center bg-navy px-5 py-16 text-center text-white">
+      <Link href="/" aria-label="Josh Moore, home" className="mb-12">
+        <img
+          src="/logo-jm-480.webp"
+          alt="Josh Moore"
+          className="h-14 w-auto"
+          width={224}
+          height={56}
+        />
+      </Link>
+      <p className="eyebrow text-brand-100">Error</p>
+      <h1 className="display-xl mt-4">404</h1>
+      <p className="mt-6 max-w-md text-lg leading-relaxed text-white/78 md:text-xl">
+        That page is not here.
+      </p>
+      <div className="mt-9">
+        <Button asChild variant="light" size="lg">
+          <Link href="/">
+            Back to the homepage
+            <ArrowRight />
+          </Link>
+        </Button>
+      </div>
+    </main>
   );
 }

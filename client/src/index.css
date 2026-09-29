@@ -3,6 +3,34 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+  itsjoshmoore.com design tokens.
+
+  Brand: navy ink, one brand blue, warm paper. The same three colors the press
+  kit already uses, so every page reads as one site. Display type is Bricolage
+  Grotesque (headlines, big numbers); Inter carries body and UI.
+*/
+@theme {
+  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-navy: #0a1e32;
+  --color-navy-800: #12294a;
+  --color-navy-700: #1b3a63;
+  --color-brand: #4d92d0;
+  --color-brand-600: #2f74b8;
+  --color-brand-100: #dbe9f7;
+  --color-paper: #f5f3ee;
+  --color-paper-2: #ece9e2;
+  --color-line: #dce2e6;
+  --color-ink: #0a1e32;
+  --color-ink-soft: #3d4a5c;
+  --color-ink-muted: #6b7686;
+
+  --shadow-card: 0 1px 2px rgb(10 30 50 / 0.04), 0 12px 32px -16px rgb(10 30 50 / 0.18);
+  --shadow-lift: 0 2px 4px rgb(10 30 50 / 0.06), 0 24px 48px -20px rgb(10 30 50 / 0.28);
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -43,39 +71,39 @@
 }
 
 :root {
-  --primary: oklch(0.623 0.106 247.858); /* #4D92D0 */
-  --primary-foreground: oklch(1 0 0);
-  --sidebar-primary: oklch(0.623 0.106 247.858);
-  --sidebar-primary-foreground: oklch(1 0 0);
+  --primary: #4d92d0;
+  --primary-foreground: #ffffff;
+  --sidebar-primary: #4d92d0;
+  --sidebar-primary-foreground: #ffffff;
   --chart-1: var(--color-blue-300);
   --chart-2: var(--color-blue-500);
   --chart-3: var(--color-blue-600);
   --chart-4: var(--color-blue-700);
   --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.026 247.858); /* Navy #0A1E32 */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.141 0.026 247.858); /* Navy #0A1E32 */
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  --radius: 0.75rem;
+  --background: #ffffff;
+  --foreground: #0a1e32;
+  --card: #ffffff;
+  --card-foreground: #0a1e32;
+  --popover: #ffffff;
+  --popover-foreground: #0a1e32;
+  --secondary: #0a1e32;
+  --secondary-foreground: #ffffff;
+  --muted: #f5f3ee;
+  --muted-foreground: #5b6675;
+  --accent: #f5f3ee;
+  --accent-foreground: #0a1e32;
+  --destructive: #c53030;
+  --destructive-foreground: #ffffff;
+  --border: #dce2e6;
+  --input: #cfd7dd;
+  --ring: #4d92d0;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0a1e32;
+  --sidebar-accent: #f5f3ee;
+  --sidebar-accent-foreground: #0a1e32;
+  --sidebar-border: #dce2e6;
+  --sidebar-ring: #4d92d0;
 }
 
 .dark {
@@ -117,12 +145,34 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  h1, h2, h3, h4, h5, h6 {
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
     font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  h5, h6 {
+    font-weight: 600;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: var(--color-brand-100);
+    color: var(--color-navy);
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -135,47 +185,193 @@
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
   }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
+  /* Centers content and adds responsive side padding. Max 1200px on desktop. */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
-
   .flex {
     min-height: 0;
     min-width: 0;
   }
-
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
-
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1200px;
     }
   }
+}
+
+/* Small uppercase label above a heading. Brand blue on light, pale blue on navy. */
+@utility eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-brand-600);
+}
+@utility eyebrow-line {
+  &::before {
+    content: "";
+    display: block;
+    width: 1.5rem;
+    height: 2px;
+    background: currentColor;
+    border-radius: 999px;
+    opacity: 0.7;
+  }
+}
+
+/* Display sizes. Use with font-display (already on h1-h4). */
+@utility display-xl {
+  font-size: clamp(2.75rem, 6.2vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+}
+@utility display-lg {
+  font-size: clamp(2.25rem, 4.6vw, 3.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+}
+@utility display-md {
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+/* The one surface style for cards: white on paper, hairline, soft shadow. */
+@utility surface {
+  background: #ffffff;
+  border: 1px solid var(--color-line);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-card);
+}
+@utility surface-hover {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+    border-color: color-mix(in srgb, var(--color-brand) 45%, var(--color-line));
+  }
+}
+
+/* Soft brand-blue glow used once per dark section, never animated. */
+@utility glow-brand {
+  /* background-image only: the shorthand would wipe bg-navy on the same element. */
+  background-image:
+    radial-gradient(60% 60% at 70% 20%, rgb(77 146 208 / 0.28) 0%, rgb(77 146 208 / 0) 70%),
+    radial-gradient(40% 40% at 10% 90%, rgb(77 146 208 / 0.14) 0%, rgb(77 146 208 / 0) 70%);
+}
+
+/*
+  Form controls. Every form on the site (deal, collaborate, contractors) uses
+  these so they look and behave the same. 16px text stops iOS zooming on focus.
+*/
+@utility field {
+  display: block;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--color-ink);
+  background: #ffffff;
+  border: 1px solid var(--color-input);
+  border-radius: 0.875rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  &::placeholder { color: var(--color-ink-muted); }
+  &:focus { outline: none; border-color: var(--color-brand); box-shadow: 0 0 0 4px rgb(77 146 208 / 0.18); }
+  &[aria-invalid="true"] { border-color: var(--color-destructive); }
+}
+@utility field-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+@utility field-help {
+  margin-top: 0.4rem;
+  font-size: 0.875rem;
+  color: var(--color-ink-muted);
+}
+@utility field-error {
+  margin-top: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-destructive);
+}
+/* Selectable pill (multi-select chips) and choice card (radio tiles). */
+@utility pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-ink);
+  background: #ffffff;
+  border: 1px solid var(--color-input);
+  border-radius: 999px;
+  transition: all 150ms ease;
+  &:hover { border-color: var(--color-navy); }
+  &[aria-pressed="true"], &[data-on="true"] {
+    color: #ffffff;
+    background: var(--color-navy);
+    border-color: var(--color-navy);
+  }
+}
+@utility choice {
+  display: flex;
+  gap: 0.875rem;
+  align-items: flex-start;
+  width: 100%;
+  padding: 1rem 1.125rem;
+  text-align: left;
+  color: var(--color-ink);
+  background: #ffffff;
+  border: 1px solid var(--color-input);
+  border-radius: 1rem;
+  transition: all 150ms ease;
+  &:hover { border-color: var(--color-navy); }
+  &[aria-pressed="true"], &[data-on="true"], &:has(input:checked) {
+    border-color: var(--color-brand);
+    background: var(--color-brand-100);
+    box-shadow: inset 0 0 0 1px var(--color-brand);
+  }
+}
+
+/* Fine dot grid for paper sections. */
+@utility dots-paper {
+  background-image: radial-gradient(rgb(10 30 50 / 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
 }

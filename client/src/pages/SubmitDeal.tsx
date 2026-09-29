@@ -1,175 +1,583 @@
-import { useState, useEffect } from "react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { useRef, useState, type ReactNode } from "react";
+import { Link } from "wouter";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  Check,
+  ChevronDown,
+  Factory,
+  Home as HomeIcon,
+  Tent,
+  type LucideIcon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CtaBand, PageHero, Reveal, Section, SiteLayout } from "@/components/site";
+import { cn } from "@/lib/utils";
 import { useRouteSeo } from "@/hooks/useSeo";
 
-type Asset ="sfh" | "mf" | "mhp" | "rv" | "";
+type Asset = "sfh" | "mf" | "mhp" | "rv" | "";
 type Step = 0 | 1 | 2 | 3;
+type Option = { value: string; label: string; help?: string };
+type Errors = Record<string, string>;
 
-const STEP_NAMES = ["About You", "Property Type", "Deal Details", "Final Step"];
+const STEP_NAMES = ["About you", "Property type", "Deal details", "Final step"];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// ── Reusable UI primitives ────────────────────────────────────────────────────
+const YES_NO: Option[] = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+];
+const YES_NO_IDK: Option[] = [...YES_NO, { value: "idk", label: "I don't know" }];
+const YES_NO_UNSURE: Option[] = [...YES_NO, { value: "unsure", label: "Not sure" }];
 
-function FieldError({ msg, show }: { msg: string; show: boolean }) {
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const MONTH_OPTIONS: Option[] = MONTHS.map((m) => ({ value: m, label: m }));
+
+const PROPERTY_TYPES: { value: Asset; icon: LucideIcon; name: string; desc: string }[] = [
+  { value: "sfh", icon: HomeIcon, name: "Single family", desc: "House, townhome or condo" },
+  { value: "mf", icon: Building2, name: "Multifamily", desc: "Duplex through large apartment" },
+  { value: "mhp", icon: Factory, name: "Mobile home park", desc: "MHP or land-lease community" },
+  { value: "rv", icon: Tent, name: "RV park / campground", desc: "RV, campground or glamping" },
+];
+
+const NEXT_STEPS = [
+  {
+    title: "You send the property",
+    text: "Address, price, condition and whatever numbers you have. Rough is fine. I can work with an honest guess.",
+  },
+  {
+    title: "I run it myself",
+    text: "I read every submission and run the numbers within 24 to 48 hours.",
+  },
+  {
+    title: "You hear back",
+    text: "If it's a fit, I reach out with an offer or the terms that would make it work.",
+  },
+];
+
+// ── Form primitives ──────────────────────────────────────────────────────────
+// Every control uses the site's field, field-label, field-help, field-error,
+// pill and choice utilities so the deal form matches every other form.
+
+function Mark({ required, optional }: { required?: boolean; optional?: boolean }) {
+  if (required) {
+    return (
+      <span aria-hidden="true" className="ml-1 text-destructive">
+        *
+      </span>
+    );
+  }
+  if (optional) {
+    return (
+      <span className="ml-1.5 font-normal normal-case tracking-normal text-ink-muted">(optional)</span>
+    );
+  }
+  return null;
+}
+
+function Hint({ id, help, error }: { id: string; help?: string; error?: string }) {
+  if (error) {
+    return (
+      <p id={`${id}-error`} className="field-error" role="alert">
+        {error}
+      </p>
+    );
+  }
+  if (help) {
+    return (
+      <p id={`${id}-help`} className="field-help">
+        {help}
+      </p>
+    );
+  }
+  return null;
+}
+
+function describedBy(id: string, help?: string, error?: string) {
+  if (error) return `${id}-error`;
+  if (help) return `${id}-help`;
+  return undefined;
+}
+
+type ControlProps = {
+  id: string;
+  label: string;
+  required?: boolean;
+  optional?: boolean;
+  help?: string;
+  error?: string;
+};
+
+function TextField({
+  id,
+  label,
+  required,
+  optional,
+  help,
+  error,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  inputMode,
+  autoComplete,
+}: ControlProps & {
+  value: string;
+  onChange: (v: string) => void;
+  type?: "text" | "email" | "tel" | "number" | "date";
+  placeholder?: string;
+  inputMode?: "text" | "numeric" | "decimal" | "tel" | "email";
+  autoComplete?: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="field-label">
+        {label}
+        <Mark required={required} optional={optional} />
+      </label>
+      <input
+        id={id}
+        name={id}
+        type={type}
+        className="field"
+        value={value}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        aria-required={required || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(id, help, error)}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <Hint id={id} help={help} error={error} />
+    </div>
+  );
+}
+
+function SelectField({
+  id,
+  label,
+  required,
+  optional,
+  help,
+  error,
+  value,
+  onChange,
+  options,
+  placeholder = "Select",
+}: ControlProps & {
+  value: string;
+  onChange: (v: string) => void;
+  options: Option[];
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="field-label">
+        {label}
+        <Mark required={required} optional={optional} />
+      </label>
+      <div className="relative">
+        <select
+          id={id}
+          name={id}
+          className="field appearance-none pr-11"
+          value={value}
+          aria-required={required || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy(id, help, error)}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
+        />
+      </div>
+      <Hint id={id} help={help} error={error} />
+    </div>
+  );
+}
+
+function TextAreaField({
+  id,
+  label,
+  required,
+  optional,
+  help,
+  error,
+  value,
+  onChange,
+  placeholder,
+}: ControlProps & { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div>
+      <label htmlFor={id} className="field-label">
+        {label}
+        <Mark required={required} optional={optional} />
+      </label>
+      <textarea
+        id={id}
+        name={id}
+        rows={4}
+        className="field min-h-28 resize-y"
+        value={value}
+        placeholder={placeholder}
+        aria-required={required || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(id, help, error)}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <Hint id={id} help={help} error={error} />
+    </div>
+  );
+}
+
+/** Single choice as radio tiles. The `choice` utility styles :has(input:checked). */
+function RadioTiles({
+  id,
+  label,
+  required,
+  optional,
+  help,
+  error,
+  value,
+  onChange,
+  options,
+  columns = "auto",
+}: ControlProps & {
+  value: string;
+  onChange: (v: string) => void;
+  options: Option[];
+  columns?: "auto" | 2 | 3;
+}) {
+  return (
+    <fieldset className="min-w-0" aria-describedby={describedBy(id, help, error)}>
+      <legend className="field-label">
+        {label}
+        <Mark required={required} optional={optional} />
+      </legend>
+      <div
+        className={cn(
+          "grid gap-2.5",
+          columns === 2 && "sm:grid-cols-2",
+          columns === 3 && "sm:grid-cols-3",
+          columns === "auto" && "sm:flex sm:flex-wrap",
+        )}
+      >
+        {options.map((o) => (
+          <label key={o.value} className={cn("choice", columns === "auto" && "sm:w-auto sm:min-w-36")}>
+            <input
+              type="radio"
+              name={id}
+              value={o.value}
+              checked={value === o.value}
+              onChange={() => onChange(o.value)}
+              className="peer sr-only"
+            />
+            <span
+              aria-hidden="true"
+              className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-navy/30 bg-white transition-colors peer-checked:border-brand peer-checked:bg-brand peer-focus-visible:ring-4 peer-focus-visible:ring-brand/30"
+            >
+              <span className="size-2 rounded-full bg-white" />
+            </span>
+            <span className="text-[15px] font-medium leading-snug">
+              {o.label}
+              {o.help && <span className="mt-0.5 block text-sm font-normal text-ink-muted">{o.help}</span>}
+            </span>
+          </label>
+        ))}
+      </div>
+      <Hint id={id} help={help} error={error} />
+    </fieldset>
+  );
+}
+
+/** Multi-select for longer options, as checkbox tiles. */
+function CheckTiles({
+  id,
+  label,
+  optional,
+  help,
+  options,
+  selected,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  optional?: boolean;
+  help?: string;
+  options: string[];
+  selected: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const toggle = (v: string) =>
+    onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+  return (
+    <fieldset className="min-w-0" aria-describedby={describedBy(id, help)}>
+      <legend className="field-label">
+        {label}
+        <Mark optional={optional} />
+      </legend>
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        {options.map((o) => (
+          <label key={o} className="choice">
+            <input
+              type="checkbox"
+              name={id}
+              value={o}
+              checked={selected.includes(o)}
+              onChange={() => toggle(o)}
+              className="peer sr-only"
+            />
+            <span
+              aria-hidden="true"
+              className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border border-navy/30 bg-white text-white transition-colors peer-checked:border-brand peer-checked:bg-brand peer-focus-visible:ring-4 peer-focus-visible:ring-brand/30"
+            >
+              <Check className="size-3.5" strokeWidth={3} />
+            </span>
+            <span className="text-[15px] font-medium leading-snug">{o}</span>
+          </label>
+        ))}
+      </div>
+      <Hint id={id} help={help} />
+    </fieldset>
+  );
+}
+
+/** Multi-select for short options, as pills. */
+function Pills({
+  label,
+  optional,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  optional?: boolean;
+  options: string[];
+  selected: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const toggle = (v: string) =>
+    onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+  return (
+    <fieldset className="min-w-0">
+      <legend className="field-label">
+        {label}
+        <Mark optional={optional} />
+      </legend>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => (
+          <button
+            key={o}
+            type="button"
+            className="pill"
+            aria-pressed={selected.includes(o)}
+            onClick={() => toggle(o)}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/** One checkbox with a sentence next to it, for consent lines. */
+function ConsentBox({
+  id,
+  checked,
+  onChange,
+  error,
+  children,
+}: {
+  id: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  error?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="choice">
+        <input
+          id={id}
+          name={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className="peer sr-only"
+        />
+        <span
+          aria-hidden="true"
+          className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border border-navy/30 bg-white text-white transition-colors peer-checked:border-brand peer-checked:bg-brand peer-focus-visible:ring-4 peer-focus-visible:ring-brand/30"
+        >
+          <Check className="size-3.5" strokeWidth={3} />
+        </span>
+        <span className="text-[15px] leading-relaxed text-ink">{children}</span>
+      </label>
+      <Hint id={id} error={error} />
+    </div>
+  );
+}
+
+/** A paper inset for questions that only appear after an answer. */
+function Subsection({ show = true, title, children }: { show?: boolean; title?: string; children: ReactNode }) {
   if (!show) return null;
-  return <p className="text-red-400 text-sm mt-1">{msg}</p>;
-}
-
-function Label({ children, required, optional }: { children: React.ReactNode; required?: boolean; optional?: boolean }) {
   return (
-    <label className="block text-sm font-semibold text-gray-200 mb-1">
-      {children}
-      {required && <span className="text-red-400 ml-1">*</span>}
-      {optional && <span className="text-gray-400 font-normal ml-1">(optional)</span>}
-    </label>
-  );
-}
-
-function Input({ id, type = "text", placeholder, value, onChange, hasError }: {
-  id?: string; type?: string; placeholder?: string; value: string;
-  onChange: (v: string) => void; hasError?: boolean;
-}) {
-  return (
-    <input
-      id={id}
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className={`w-full bg-[#0f2035] border rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${hasError ? "border-red-400" : "border-gray-600"}`}
-    />
-  );
-}
-
-function Select({ id, value, onChange, options, hasError }: {
-  id?: string; value: string; onChange: (v: string) => void;
-  options: { value: string; label: string }[]; hasError?: boolean;
-}) {
-  return (
-    <select
-      id={id}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className={`w-full bg-[#0f2035] border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${hasError ? "border-red-400" : "border-gray-600"}`}
-    >
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-}
-
-function Textarea({ placeholder, value, onChange }: { placeholder?: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <textarea
-      placeholder={placeholder}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      rows={3}
-      className="w-full bg-[#0f2035] border border-gray-600 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"
-    />
-  );
-}
-
-function RadioGroup({ name, options, value, onChange }: {
-  name: string; options: { value: string; label: string }[];
-  value: string; onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map(o => (
-        <label key={o.value} className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition text-sm font-medium ${value === o.value ? "border-blue-500 bg-blue-500/20 text-blue-300" : "border-gray-600 bg-[#0f2035] text-gray-300 hover:border-gray-400"}`}>
-          <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="sr-only" />
-          {o.label}
-        </label>
-      ))}
+    <div className="rounded-2xl border border-line bg-paper p-5 sm:p-6">
+      {title && <p className="eyebrow mb-4">{title}</p>}
+      <div className="space-y-5">{children}</div>
     </div>
   );
 }
 
-function CheckboxGroup({ options, selected, onChange }: {
-  options: string[]; selected: string[]; onChange: (v: string[]) => void;
-}) {
-  const toggle = (v: string) => selected.includes(v) ? onChange(selected.filter(x => x !== v)) : onChange([...selected, v]);
+function Divider() {
+  return <hr className="border-line" />;
+}
+
+function Pair({ children }: { children: ReactNode }) {
+  return <div className="grid gap-5 sm:grid-cols-2">{children}</div>;
+}
+
+function StepHeading({ step, title, lede }: { step: Step; title: ReactNode; lede?: string }) {
   return (
-    <div className="flex flex-col gap-2">
-      {options.map(o => (
-        <label key={o} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border cursor-pointer transition text-sm ${selected.includes(o) ? "border-blue-500 bg-blue-500/10 text-blue-200" : "border-gray-600 bg-[#0f2035] text-gray-300 hover:border-gray-400"}`}>
-          <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)} className="accent-blue-500 w-4 h-4 flex-shrink-0" />
-          {o}
-        </label>
-      ))}
+    <div className="mb-8 border-b border-line pb-6">
+      <p className="eyebrow eyebrow-line mb-3">
+        Step {step + 1} of {STEP_NAMES.length}
+      </p>
+      <h2 className="text-2xl text-navy md:text-3xl">{title}</h2>
+      {lede && <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{lede}</p>}
     </div>
   );
 }
 
-function PillGroup({ options, selected, onChange }: {
-  options: string[]; selected: string[]; onChange: (v: string[]) => void;
-}) {
-  const toggle = (v: string) => selected.includes(v) ? onChange(selected.filter(x => x !== v)) : onChange([...selected, v]);
-  return (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {options.map(o => (
-        <button key={o} type="button" onClick={() => toggle(o)} className={`px-3 py-1.5 rounded-full border text-sm font-medium transition ${selected.includes(o) ? "border-blue-500 bg-blue-500/20 text-blue-300" : "border-gray-600 bg-[#0f2035] text-gray-400 hover:border-gray-400"}`}>
-          {o}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ConditionalBlock({ show, title, children }: { show: boolean; title?: string; children: React.ReactNode }) {
-  if (!show) return null;
-  return (
-    <div className="mt-4 p-4 bg-[#0a1828] border border-blue-900/40 rounded-xl">
-      {title && <p className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-3">{title}</p>}
-      <div className="space-y-4">{children}</div>
-    </div>
-  );
-}
-
-function SectionDivider() {
-  return <hr className="border-gray-700/50 my-2" />;
-}
-
-function NavButtons({ onBack, onNext, backLabel = "← Back", nextLabel = "Next →", isSubmit = false, disabled = false }: {
-  onBack?: () => void; onNext: () => void; backLabel?: string; nextLabel?: string; isSubmit?: boolean; disabled?: boolean;
+/** Back never validates. Next and Submit are the form's submit button. */
+function StepNav({
+  onBack,
+  nextLabel = "Next",
+  submit = false,
+  busy = false,
+}: {
+  onBack?: () => void;
+  nextLabel?: string;
+  submit?: boolean;
+  busy?: boolean;
 }) {
   return (
-    <div className={`flex mt-8 ${onBack ? "justify-between" : "justify-end"}`}>
-      {onBack && (
-        <button type="button" onClick={onBack} className="px-6 py-2.5 rounded-lg border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white transition font-medium text-sm">
-          {backLabel}
-        </button>
+    <div className="mt-9 flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
+      {onBack ? (
+        <Button type="button" variant="outline" size="lg" className="w-full sm:w-auto" onClick={onBack} disabled={busy}>
+          <ArrowLeft />
+          Back
+        </Button>
+      ) : (
+        <span className="hidden sm:block" />
       )}
-      <button type="button" onClick={onNext} disabled={disabled} className={`px-8 py-2.5 rounded-lg font-semibold text-sm transition ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${isSubmit ? "bg-green-600 hover:bg-green-500 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
+      <Button type="submit" variant={submit ? "brand" : "default"} size="lg" className="w-full sm:w-auto" disabled={busy}>
         {nextLabel}
-      </button>
+        <ArrowRight />
+      </Button>
     </div>
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
+function Progress({ step }: { step: Step }) {
+  return (
+    <div>
+      <div className="mb-3 flex items-baseline justify-between text-sm">
+        <span className="font-semibold text-navy">
+          Step {step + 1} of {STEP_NAMES.length}
+        </span>
+        <span className="text-ink-muted">{STEP_NAMES[step]}</span>
+      </div>
+      <ol className="grid grid-cols-4 gap-2" aria-label="Progress">
+        {STEP_NAMES.map((name, i) => (
+          <li key={name} aria-current={i === step ? "step" : undefined}>
+            <span
+              className={cn(
+                "block h-1.5 rounded-full transition-colors duration-300",
+                i <= step ? "bg-brand" : "bg-line",
+              )}
+            />
+            <span
+              className={cn(
+                "mt-2 hidden text-[11px] font-semibold uppercase tracking-[0.12em] sm:block",
+                i === step ? "text-navy" : "text-ink-muted",
+              )}
+            >
+              {name}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function NextSteps() {
+  return (
+    <div className="rounded-[1.5rem] border border-white/12 bg-white/[0.06] p-6 sm:p-8">
+      <p className="eyebrow text-brand-100">What happens next</p>
+      <ol className="mt-5 space-y-5">
+        {NEXT_STEPS.map((s, i) => (
+          <li key={s.title} className="flex gap-4">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand/25 font-display text-sm font-bold text-brand-100">
+              {i + 1}
+            </span>
+            <div>
+              <p className="font-semibold text-white">{s.title}</p>
+              <p className="mt-1 text-[15px] leading-relaxed text-white/70">{s.text}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SubmitDeal() {
   useRouteSeo("/submit-deal");
 
+  const topRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<Step>(0);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Errors>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  // Step 1 — Submitter info
-  const [isOwner, setIsOwner] = useState<string>("");
+  // Bot checks. The honeypot stays empty for people; started_at lets the
+  // server drop anything posted within a few seconds of the page loading.
+  const [startedAt] = useState(() => Date.now());
+  const [honeypot, setHoneypot] = useState("");
+
+  // Step 1: about you
+  const [isOwner, setIsOwner] = useState("");
   const [role, setRole] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [contactPref, setContactPref] = useState("");
 
-  // Step 2 — Asset class
+  // Step 2: property type
   const [asset, setAsset] = useState<Asset>("");
 
-  // Step 3 — SFH
+  // Step 3: single family
   const [sfhAddr, setSfhAddr] = useState("");
   const [sfhPrice, setSfhPrice] = useState("");
   const [sfhArv, setSfhArv] = useState("");
@@ -192,11 +600,11 @@ export default function SubmitDeal() {
   const [sfhCfOptions, setSfhCfOptions] = useState<string[]>([]);
   const [sfhMotivation, setSfhMotivation] = useState<string[]>([]);
 
-  // Step 3 — MF
+  // Step 3: multifamily
   const [mfAddr, setMfAddr] = useState("");
   const [mfPrice, setMfPrice] = useState("");
   const [mfUnits, setMfUnits] = useState("");
-  // 2-4 sub-track
+  // 2 to 4 units
   const [mf24Occ, setMf24Occ] = useState("");
   const [mf24Rents, setMf24Rents] = useState("");
   const [mf24Cond, setMf24Cond] = useState("");
@@ -205,7 +613,7 @@ export default function SubmitDeal() {
   const [mf24MortRate, setMf24MortRate] = useState("");
   const [mf24Assume, setMf24Assume] = useState("");
   const [mf24Cf, setMf24Cf] = useState("");
-  // 5-19 sub-track
+  // 5 to 19 units
   const [mf5Occ, setMf5Occ] = useState("");
   const [mf5Rents, setMf5Rents] = useState("");
   const [mf5Noi, setMf5Noi] = useState("");
@@ -216,7 +624,7 @@ export default function SubmitDeal() {
   const [mf5Year, setMf5Year] = useState("");
   const [mf5Cond, setMf5Cond] = useState("");
   const [mf5T12, setMf5T12] = useState("");
-  // 20+ sub-track
+  // 20+ units
   const [mf20Occ, setMf20Occ] = useState("");
   const [mf20Rents, setMf20Rents] = useState("");
   const [mf20Mort, setMf20Mort] = useState("");
@@ -228,7 +636,7 @@ export default function SubmitDeal() {
   const [mf20T12, setMf20T12] = useState("");
   const [mf20Sf, setMf20Sf] = useState("");
 
-  // Step 3 — MHP
+  // Step 3: mobile home park
   const [mhpAddr, setMhpAddr] = useState("");
   const [mhpPrice, setMhpPrice] = useState("");
   const [mhpLots, setMhpLots] = useState("");
@@ -250,7 +658,7 @@ export default function SubmitDeal() {
   const [mhpEnvDesc, setMhpEnvDesc] = useState("");
   const [mhpSf, setMhpSf] = useState("");
 
-  // Step 3 — RV
+  // Step 3: RV park / campground
   const [rvAddr, setRvAddr] = useState("");
   const [rvPrice, setRvPrice] = useState("");
   const [rvSites, setRvSites] = useState("");
@@ -272,91 +680,124 @@ export default function SubmitDeal() {
   const [rvAssume, setRvAssume] = useState("");
   const [rvSf, setRvSf] = useState("");
 
-  // Step 4 — Final
+  // Step 4: final
   const [notes, setNotes] = useState("");
   const [hearAbout, setHearAbout] = useState("");
   const [referralFee, setReferralFee] = useState("");
   const [dealStatus, setDealStatus] = useState("");
   const [consent, setConsent] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false);
 
   const isWholesaler = isOwner === "no";
-  const mfUnitCount = parseInt(mfUnits) || 0;
+  const mfUnitCount = parseInt(mfUnits, 10) || 0;
+  const mfIs24 = mfUnitCount >= 2 && mfUnitCount <= 4;
+  const mfIs5 = mfUnitCount >= 5 && mfUnitCount <= 19;
+  const mfIs20 = mfUnitCount >= 20;
 
-  function err(field: string, msg: string) {
-    setErrors(prev => ({ ...prev, [field]: msg }));
-  }
-  function clearErr(field: string) {
-    setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
+  function clearErr(key: string) {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
-  function validateStep(s: Step): boolean {
-    const newErrors: Record<string, string> = {};
+  /** Wrap a setter so typing in a field clears its error as you go. */
+  function bind<T>(setter: (v: T) => void, key: string) {
+    return (v: T) => {
+      setter(v);
+      clearErr(key);
+    };
+  }
+
+  // Every required marker on the form has a matching rule here, and nothing
+  // is checked that is not marked. The server repeats the checks that matter.
+  function validateStep(s: Step): Errors {
+    const e: Errors = {};
 
     if (s === 0) {
-      if (!isOwner) newErrors["isOwner"] = "Please select an option.";
-      if (!name.trim()) newErrors["name"] = "Please enter your name.";
-      if (!email.trim() || !email.includes("@")) newErrors["email"] = "Please enter a valid email.";
-      if (!phone.trim()) newErrors["phone"] = "Please enter your phone number.";
+      if (!isOwner) e.isOwner = "Let me know whether you own the property.";
+      if (!name.trim()) e.name = "Please enter your name.";
+      if (!EMAIL_RE.test(email.trim())) e.email = "Please enter a valid email address.";
+      if (phone.replace(/\D/g, "").length < 10) e.phone = "Please enter a phone number with the area code.";
     }
 
-    if (s === 1) {
-      if (!asset) newErrors["asset"] = "Please select a property type.";
-    }
+    if (s === 1 && !asset) e.asset = "Pick the property type that fits best.";
 
     if (s === 2) {
       if (asset === "sfh") {
-        if (!sfhAddr.trim()) newErrors["sfhAddr"] = "Required.";
-        if (!sfhPrice.trim()) newErrors["sfhPrice"] = "Required.";
-        if (!sfhBeds) newErrors["sfhBeds"] = "Required.";
-        if (!sfhBaths) newErrors["sfhBaths"] = "Required.";
-        if (!sfhCond) newErrors["sfhCond"] = "Required.";
-        if (isWholesaler && !sfhArv.trim()) newErrors["sfhArv"] = "Required for wholesalers.";
-        if (isWholesaler && !sfhMort) newErrors["sfhMort"] = "Required for wholesalers.";
+        if (!sfhAddr.trim()) e.sfhAddr = "Please enter the property address.";
+        if (!sfhPrice.trim()) e.sfhPrice = "Please enter the asking price.";
+        if (!sfhBeds) e.sfhBeds = "Please pick the number of bedrooms.";
+        if (!sfhBaths) e.sfhBaths = "Please pick the number of bathrooms.";
+        if (!sfhCond) e.sfhCond = "Please pick the condition.";
+        if (isWholesaler && !sfhArv.trim()) e.sfhArv = "Wholesalers and agents need to include an ARV.";
+        if (isWholesaler && !sfhMort) e.sfhMort = "Wholesalers and agents need to answer this one.";
       }
       if (asset === "mf") {
-        if (!mfAddr.trim()) newErrors["mfAddr"] = "Required.";
-        if (!mfPrice.trim()) newErrors["mfPrice"] = "Required.";
-        if (!mfUnits.trim()) newErrors["mfUnits"] = "Required.";
+        if (!mfAddr.trim()) e.mfAddr = "Please enter the property address.";
+        if (!mfPrice.trim()) e.mfPrice = "Please enter the asking price.";
+        if (!mfUnits.trim() || mfUnitCount < 2) e.mfUnits = "Please enter the total number of units (2 or more).";
+        if (mfIs5) {
+          if (!mf5Occ.trim()) e.mf5Occ = "Please enter the occupancy percentage.";
+          if (!mf5Rents.trim()) e.mf5Rents = "Please enter the gross monthly rents.";
+        }
+        if (mfIs20) {
+          if (!mf20Occ.trim()) e.mf20Occ = "Please enter the occupancy percentage.";
+          if (!mf20Rents.trim()) e.mf20Rents = "Please enter the gross monthly rents.";
+          if (!mf20Mort) e.mf20Mort = "Please answer whether there is an existing mortgage.";
+        }
       }
       if (asset === "mhp") {
-        if (!mhpAddr.trim()) newErrors["mhpAddr"] = "Required.";
-        if (!mhpPrice.trim()) newErrors["mhpPrice"] = "Required.";
-        if (!mhpLots.trim()) newErrors["mhpLots"] = "Required.";
-        if (!mhpOcc.trim()) newErrors["mhpOcc"] = "Required.";
-        if (!mhpWater) newErrors["mhpWater"] = "Required.";
-        if (!mhpPoh) newErrors["mhpPoh"] = "Required.";
-        if (isWholesaler && !mhpInc.trim()) newErrors["mhpInc"] = "Required for wholesalers.";
+        if (!mhpAddr.trim()) e.mhpAddr = "Please enter the property address.";
+        if (!mhpPrice.trim()) e.mhpPrice = "Please enter the asking price.";
+        if (!mhpLots.trim()) e.mhpLots = "Please enter the total number of lots.";
+        if (!mhpOcc.trim()) e.mhpOcc = "Please enter the occupied lots or occupancy.";
+        if (!mhpWater) e.mhpWater = "Please pick the water and sewer type.";
+        if (!mhpPoh) e.mhpPoh = "Please pick the home ownership type.";
+        if (isWholesaler && !mhpInc.trim()) e.mhpInc = "Wholesalers and agents need to include the gross monthly income.";
       }
       if (asset === "rv") {
-        if (!rvAddr.trim()) newErrors["rvAddr"] = "Required.";
-        if (!rvPrice.trim()) newErrors["rvPrice"] = "Required.";
-        if (!rvSites.trim()) newErrors["rvSites"] = "Required.";
-        if (!rvSeason) newErrors["rvSeason"] = "Required.";
-        if (isWholesaler && !rvRev.trim()) newErrors["rvRev"] = "Required for wholesalers.";
-        if (isWholesaler && !rvMort) newErrors["rvMort"] = "Required for wholesalers.";
+        if (!rvAddr.trim()) e.rvAddr = "Please enter the property address.";
+        if (!rvPrice.trim()) e.rvPrice = "Please enter the asking price.";
+        if (!rvSites.trim()) e.rvSites = "Please enter the total number of sites.";
+        if (!rvSeason) e.rvSeason = "Please pick seasonal or year-round.";
+        if (rvSeason === "seasonal") {
+          if (!rvSeasonOpen) e.rvSeasonOpen = "Please pick the month the season opens.";
+          if (!rvSeasonClose) e.rvSeasonClose = "Please pick the month the season closes.";
+        }
+        if (rvSeason === "yearround" && !rvYrOcc.trim()) e.rvYrOcc = "Please enter the current occupancy.";
+        if (isWholesaler && !rvRev.trim()) e.rvRev = "Wholesalers and agents need to include the gross annual revenue.";
+        if (isWholesaler && !rvMort) e.rvMort = "Wholesalers and agents need to answer this one.";
       }
     }
 
-    if (s === 3) {
-      if (!consent) newErrors["consent"] = "Please confirm before submitting.";
-    }
+    if (s === 3 && !consent) e.consent = "Please confirm the information is accurate before submitting.";
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return e;
   }
 
-  function goTo(s: Step) {
-    if (!validateStep(step)) return;
-    setStep(s);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  function scrollToTop() {
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  async function handleSubmit() {
-    if (!validateStep(3)) return;
-    setSubmitting(true);
+  function next() {
+    const e = validateStep(step);
+    setErrors(e);
+    if (Object.keys(e).length) return;
+    setStep((step + 1) as Step);
+    scrollToTop();
+  }
+
+  function back() {
+    setErrors({});
     setSubmitError("");
+    setStep((step - 1) as Step);
+    scrollToTop();
+  }
 
-    // Map asset code to API property type
+  function buildPayload(): Record<string, unknown> {
     const propertyTypeMap: Record<string, string> = {
       sfh: "sfr",
       mf: "multifamily",
@@ -364,25 +805,27 @@ export default function SubmitDeal() {
       rv: "rv_park",
     };
 
-    const nameParts = name.trim().split(" ");
+    const nameParts = name.trim().split(/\s+/);
     const firstName = nameParts[0] || "";
-    const lastName = nameParts.slice(1).join(" ") || "";
+    const lastName = nameParts.slice(1).join(" ");
 
     const payload: Record<string, unknown> = {
       propertyType: propertyTypeMap[asset] || asset,
-      submitterRole: isOwner === "yes" ? "owner" : (role || "wholesaler"),
+      submitterRole: isOwner === "yes" ? "owner" : role || "wholesaler",
       isOwner: isOwner === "yes",
       firstName,
       lastName,
-      email,
-      phone,
+      email: email.trim(),
+      phone: phone.trim(),
       preferredContact: contactPref,
       additionalNotes: notes,
       howHeard: hearAbout,
       consent,
+      smsConsent,
+      company_website: honeypot,
+      started_at: startedAt,
     };
 
-    // Asset-class specific fields
     if (asset === "sfh") {
       Object.assign(payload, {
         propertyAddress: sfhAddr,
@@ -410,45 +853,48 @@ export default function SubmitDeal() {
         dealStatus,
       });
     } else if (asset === "mf") {
-      const unitCount = parseInt(mfUnits) || 0;
       Object.assign(payload, {
         propertyAddress: mfAddr,
         askingPrice: mfPrice,
         unitCount: mfUnits,
         assignmentFee: referralFee,
         dealStatus,
-        ...(unitCount >= 2 && unitCount <= 4 ? {
-          occupancyStatus: mf24Occ,
-          grossRents: mf24Rents,
-          condition: mf24Cond,
-          hasMortgage: mf24Mort,
-          mortgageBalance: mf24MortBal,
-          mortgageRate: mf24MortRate,
-          assumable: mf24Assume,
-          creativeFinancing: mf24Cf,
-        } : unitCount >= 5 && unitCount <= 19 ? {
-          occupancyStatus: mf5Occ,
-          grossRents: mf5Rents,
-          currentNoi: mf5Noi,
-          hasMortgage: mf5Mort,
-          mortgageBalance: mf5MortBal,
-          mortgageRate: mf5MortRate,
-          assumable: mf5Assume,
-          yearBuilt: mf5Year,
-          condition: mf5Cond,
-          t12Available: mf5T12,
-        } : {
-          occupancyStatus: mf20Occ,
-          grossRents: mf20Rents,
-          hasMortgage: mf20Mort,
-          mortgageBalance: mf20MortBal,
-          mortgageRate: mf20MortRate,
-          assumable: mf20Assume,
-          currentNoi: mf20Noi,
-          capRate: mf20Cap,
-          t12Available: mf20T12,
-          squareFootage: mf20Sf,
-        }),
+        ...(mfIs24
+          ? {
+              occupancyStatus: mf24Occ,
+              grossRents: mf24Rents,
+              condition: mf24Cond,
+              hasMortgage: mf24Mort,
+              mortgageBalance: mf24MortBal,
+              mortgageRate: mf24MortRate,
+              assumable: mf24Assume,
+              creativeFinancing: mf24Cf,
+            }
+          : mfIs5
+            ? {
+                occupancyStatus: mf5Occ,
+                grossRents: mf5Rents,
+                currentNoi: mf5Noi,
+                hasMortgage: mf5Mort,
+                mortgageBalance: mf5MortBal,
+                mortgageRate: mf5MortRate,
+                assumable: mf5Assume,
+                yearBuilt: mf5Year,
+                condition: mf5Cond,
+                t12Available: mf5T12,
+              }
+            : {
+                occupancyStatus: mf20Occ,
+                grossRents: mf20Rents,
+                hasMortgage: mf20Mort,
+                mortgageBalance: mf20MortBal,
+                mortgageRate: mf20MortRate,
+                assumable: mf20Assume,
+                currentNoi: mf20Noi,
+                capRate: mf20Cap,
+                t12Available: mf20T12,
+                sellerFinancing: mf20Sf,
+              }),
       });
     } else if (asset === "mhp") {
       Object.assign(payload, {
@@ -471,7 +917,7 @@ export default function SubmitDeal() {
         violationsDesc: mhpViolDesc,
         environmentalIssues: mhpEnv,
         environmentalDesc: mhpEnvDesc,
-        squareFootage: mhpSf,
+        sellerFinancing: mhpSf,
         assignmentFee: referralFee,
         dealStatus,
       });
@@ -496,793 +942,1483 @@ export default function SubmitDeal() {
         mortgageBalance: rvMortBal,
         mortgageRate: rvMortRate,
         assumable: rvAssume,
-        squareFootage: rvSf,
+        sellerFinancing: rvSf,
         assignmentFee: referralFee,
         dealStatus,
       });
     }
 
+    return payload;
+  }
+
+  async function submit() {
+    const e = validateStep(3);
+    setErrors(e);
+    if (Object.keys(e).length) return;
+
+    setSubmitting(true);
+    setSubmitError("");
     try {
       const res = await fetch("/api/submit-deal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildPayload()),
       });
-
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Server error: ${res.status}`);
+        const body: { error?: unknown } = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof body.error === "string" && body.error
+            ? body.error
+            : "Something went wrong sending your deal. Please try again.",
+        );
       }
-
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
-      setSubmitError(message);
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong sending your deal. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting) return;
+    if (step < 3) next();
+    else void submit();
+  }
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#071525]">
-        <Header />
-        <main className="flex-1 flex items-center justify-center py-20">
-          <div className="text-center space-y-6 max-w-lg mx-auto px-6">
-            <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center mx-auto">
-              <svg className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+      <SiteLayout>
+        <Section tone="paper" className="dots-paper flex min-h-[60vh] items-center">
+          <Reveal className="mx-auto max-w-xl">
+            <div className="surface p-8 text-center sm:p-12">
+              <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-navy text-white">
+                <Check className="size-8" strokeWidth={2.5} />
+              </span>
+              <h1 className="display-md mt-7 text-navy">Deal received.</h1>
+              <p className="mt-4 text-lg leading-relaxed text-ink-soft">
+                I review every submission and will reach out within 24 to 48 hours if it's a fit.
+                Thanks for sending it over.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <Button asChild size="lg">
+                  <Link href="/">
+                    Back to home
+                    <ArrowRight />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/buy-box">See my buy box</Link>
+                </Button>
+              </div>
             </div>
-            <h2 className="text-3xl font-bold text-white">Deal Received.</h2>
-            <p className="text-gray-400 text-lg">We review every submission and will reach out within 24–48 hours if it's a fit. Thanks for sending it over.</p>
-            <a href="/" className="inline-block mt-4 px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition">Back to Home</a>
-          </div>
-        </main>
-        <Footer />
-      </div>
+          </Reveal>
+        </Section>
+      </SiteLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#071525]">
-      <Header />
+    <SiteLayout>
+      <PageHero
+        tone="navy"
+        eyebrow="Submit a deal"
+        title={
+          <>
+            Submit your <span className="text-brand">deal</span>.
+          </>
+        }
+        lede="Four short steps: who you are, what the property is, the numbers you have, and anything else I should know. I review every submission within 24 to 48 hours."
+        aside={<NextSteps />}
+      />
 
-      <main className="flex-1 py-12 px-4">
-        <div className="max-w-2xl mx-auto">
+      <Section tone="paper" className="dots-paper">
+        <div ref={topRef} className="mx-auto max-w-3xl scroll-mt-24">
+          <Progress step={step} />
 
-          {/* Logo + Header */}
-          <div className="text-center mb-10">
-            <div className="inline-block bg-[#0a1828] rounded-2xl px-8 py-6 mb-4 border border-gray-700/40">
-              <img src="/logo-jm.png" alt="Josh Moore" className="h-20 mx-auto" />
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-white">Submit Your Deal</h1>
-            <p className="text-gray-400 mt-2">Fill out the form below and I'll review it within 24–48 hours.</p>
-          </div>
+          <Reveal delay={0.05}>
+            <form noValidate onSubmit={onSubmit} className="surface relative mt-6 p-5 sm:p-8 md:p-10">
+              {/* Honeypot. Off screen, out of the tab order, and left empty by people. */}
+              <div aria-hidden="true" className="absolute left-[-9999px] top-0 h-px w-px overflow-hidden">
+                <label htmlFor="company_website">Company website</label>
+                <input
+                  id="company_website"
+                  name="company_website"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                />
+              </div>
 
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-gray-400 font-medium">Step {step + 1} of 4</span>
-              <span className="text-xs text-blue-400 font-semibold">{STEP_NAMES[step]}</span>
-            </div>
-            <div className="flex gap-1.5">
-              {[0,1,2,3].map(i => (
-                <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${i <= step ? "bg-blue-500" : "bg-gray-700"}`} />
-              ))}
-            </div>
-          </div>
-
-          {/* Form Card */}
-          <div className="bg-[#0a1828] border border-gray-700/40 rounded-2xl p-6 md:p-8 space-y-5">
-
-            {/* ── STEP 1: About You ── */}
-            {step === 0 && (
-              <>
-                <h2 className="text-xl font-bold text-white border-b border-gray-700 pb-3">About You</h2>
-
-                <div>
-                  <Label required>Are you the property owner?</Label>
-                  <RadioGroup name="is_owner" value={isOwner} onChange={setIsOwner}
-                    options={[{ value: "yes", label: "Yes, I own it" }, { value: "no", label: "No, I'm a wholesaler / agent / bird dog" }]} />
-                  <FieldError msg={errors["isOwner"] || ""} show={!!errors["isOwner"]} />
-                </div>
-
-                <ConditionalBlock show={isOwner === "no"} title="Your Role">
-                  <div>
-                    <Label>Role</Label>
-                    <RadioGroup name="role" value={role} onChange={setRole}
+              {/* Step 1: about you */}
+              {step === 0 && (
+                <>
+                  <StepHeading step={0} title="About you" lede="Who I'm talking to and the best way to reach you." />
+                  <div className="space-y-6">
+                    <RadioTiles
+                      id="isOwner"
+                      label="Are you the property owner?"
+                      required
+                      columns={2}
+                      value={isOwner}
+                      onChange={bind(setIsOwner, "isOwner")}
+                      error={errors.isOwner}
                       options={[
-                        { value: "birddog", label: "Bird Dog" },
-                        { value: "wholesaler", label: "Wholesaler / Investor" },
-                        { value: "agent", label: "Agent / Broker" },
-                        { value: "other", label: "Other" },
-                      ]} />
-                  </div>
-                </ConditionalBlock>
-
-                <SectionDivider />
-
-                <div>
-                  <Label required>Full Name</Label>
-                  <Input placeholder="Jane Smith" value={name} onChange={setName} hasError={!!errors["name"]} />
-                  <FieldError msg={errors["name"] || ""} show={!!errors["name"]} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label required>Email</Label>
-                    <Input type="email" placeholder="jane@email.com" value={email} onChange={setEmail} hasError={!!errors["email"]} />
-                    <FieldError msg={errors["email"] || ""} show={!!errors["email"]} />
-                  </div>
-                  <div>
-                    <Label required>Phone</Label>
-                    <Input type="tel" placeholder="(616) 555-0100" value={phone} onChange={setPhone} hasError={!!errors["phone"]} />
-                    <FieldError msg={errors["phone"] || ""} show={!!errors["phone"]} />
-                  </div>
-                </div>
-
-                <div>
-                  <Label optional>Preferred Contact Method</Label>
-                  <RadioGroup name="contact_pref" value={contactPref} onChange={setContactPref}
-                    options={[{ value: "call", label: "Call" }, { value: "text", label: "Text" }, { value: "email", label: "Email" }]} />
-                </div>
-
-                <NavButtons onNext={() => goTo(1)} nextLabel="Next →" />
-              </>
-            )}
-
-            {/* ── STEP 2: Property Type ── */}
-            {step === 1 && (
-              <>
-                <h2 className="text-xl font-bold text-white border-b border-gray-700 pb-3">Property Type</h2>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { value: "sfh", icon: "🏠", name: "Single Family", desc: "SFH, townhome, condo" },
-                    { value: "mf", icon: "🏢", name: "Multifamily", desc: "Duplex through large apartment" },
-                    { value: "mhp", icon: "🏡", name: "Mobile Home Park", desc: "MHP / land-lease community" },
-                    { value: "rv", icon: "🚐", name: "RV Park / Campground", desc: "RV, campground, glamping" },
-                  ].map(a => (
-                    <label key={a.value} className={`flex flex-col items-center text-center p-4 rounded-xl border cursor-pointer transition ${asset === a.value ? "border-blue-500 bg-blue-500/10" : "border-gray-600 bg-[#0f2035] hover:border-gray-400"}`}>
-                      <input type="radio" name="asset" value={a.value} checked={asset === a.value} onChange={() => setAsset(a.value as Asset)} className="sr-only" />
-                      <span className="text-3xl mb-2">{a.icon}</span>
-                      <span className="font-semibold text-white text-sm">{a.name}</span>
-                      <span className="text-gray-400 text-xs mt-1">{a.desc}</span>
-                    </label>
-                  ))}
-                </div>
-                <FieldError msg={errors["asset"] || ""} show={!!errors["asset"]} />
-
-                <NavButtons onBack={() => goTo(0)} onNext={() => goTo(2)} />
-              </>
-            )}
-
-            {/* ── STEP 3: Deal Details ── */}
-            {step === 2 && (
-              <>
-                {/* SFH */}
-                {asset === "sfh" && (
-                  <>
-                    <h2 className="text-xl font-bold text-white border-b border-gray-700 pb-3">Single Family <span className="text-blue-400">Details</span></h2>
-
-                    <div>
-                      <Label required>Property Address</Label>
-                      <Input placeholder="123 Main St, Grand Haven, MI 49417" value={sfhAddr} onChange={setSfhAddr} hasError={!!errors["sfhAddr"]} />
-                      <FieldError msg={errors["sfhAddr"] || ""} show={!!errors["sfhAddr"]} />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label required>Asking Price</Label>
-                        <Input placeholder="$120,000" value={sfhPrice} onChange={setSfhPrice} hasError={!!errors["sfhPrice"]} />
-                        <FieldError msg={errors["sfhPrice"] || ""} show={!!errors["sfhPrice"]} />
-                      </div>
-                      <div>
-                        <Label required={isWholesaler} optional={!isWholesaler}>Est. ARV</Label>
-                        <Input placeholder="$185,000" value={sfhArv} onChange={setSfhArv} hasError={!!errors["sfhArv"]} />
-                        <p className="text-xs text-gray-500 mt-1">What's it worth fully fixed up?</p>
-                        <FieldError msg={errors["sfhArv"] || ""} show={!!errors["sfhArv"]} />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label required>Bedrooms</Label>
-                        <Select value={sfhBeds} onChange={setSfhBeds} hasError={!!errors["sfhBeds"]}
-                          options={[{value:"",label:"Select"},{value:"1",label:"1"},{value:"2",label:"2"},{value:"3",label:"3"},{value:"4",label:"4"},{value:"5+",label:"5+"}]} />
-                        <FieldError msg={errors["sfhBeds"] || ""} show={!!errors["sfhBeds"]} />
-                      </div>
-                      <div>
-                        <Label required>Bathrooms</Label>
-                        <Select value={sfhBaths} onChange={setSfhBaths} hasError={!!errors["sfhBaths"]}
-                          options={[{value:"",label:"Select"},{value:"1",label:"1"},{value:"1.5",label:"1.5"},{value:"2",label:"2"},{value:"2.5",label:"2.5"},{value:"3+",label:"3+"}]} />
-                        <FieldError msg={errors["sfhBaths"] || ""} show={!!errors["sfhBaths"]} />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label optional>Sq Footage</Label>
-                        <Input placeholder="1,400 sqft / I don't know" value={sfhSqft} onChange={setSfhSqft} />
-                      </div>
-                      <div>
-                        <Label optional>Year Built</Label>
-                        <Input placeholder="1978 / I don't know" value={sfhYear} onChange={setSfhYear} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label required>Property Condition</Label>
-                      <RadioGroup name="sfh-cond" value={sfhCond} onChange={setSfhCond}
-                        options={[{value:"turnkey",label:"Turnkey"},{value:"light",label:"Light Updates"},{value:"moderate",label:"Moderate Rehab"},{value:"full",label:"Full Gut"},{value:"tear",label:"Tear Down"}]} />
-                      <FieldError msg={errors["sfhCond"] || ""} show={!!errors["sfhCond"]} />
-                    </div>
-
-                    <ConditionalBlock show={["moderate","full","tear"].includes(sfhCond)} title="Repair Details">
-                      <div>
-                        <Label optional>Est. Repair Cost</Label>
-                        <Input placeholder="$45,000 / I don't know yet" value={sfhRepairCost} onChange={setSfhRepairCost} />
-                      </div>
-                      <div>
-                        <Label optional>Describe Repairs</Label>
-                        <Textarea placeholder="Roof, HVAC, kitchen/bath gut..." value={sfhRepairDesc} onChange={setSfhRepairDesc} />
-                      </div>
-                    </ConditionalBlock>
-
-                    <SectionDivider />
-
-                    <div>
-                      <Label optional>Occupancy Status</Label>
-                      <RadioGroup name="sfh-occ" value={sfhOcc} onChange={setSfhOcc}
-                        options={[{value:"vacant",label:"Vacant"},{value:"owner",label:"Owner Occupied"},{value:"tenant",label:"Tenant Occupied"},{value:"idk",label:"I don't know"}]} />
-                    </div>
-
-                    <ConditionalBlock show={sfhOcc === "tenant"} title="Tenant Info">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label optional>Monthly Rent</Label>
-                          <Input placeholder="$1,100 / I don't know" value={sfhRent} onChange={setSfhRent} />
-                        </div>
-                        <div>
-                          <Label optional>Lease Status</Label>
-                          <Select value={sfhLease} onChange={setSfhLease}
-                            options={[{value:"",label:"Select or skip"},{value:"mtm",label:"Month-to-Month"},{value:"fixed",label:"Fixed Term"},{value:"idk",label:"I don't know"}]} />
-                        </div>
-                      </div>
-                      <ConditionalBlock show={sfhLease === "fixed"}>
-                        <div>
-                          <Label optional>Lease Expiration</Label>
-                          <Input type="date" value={sfhLeaseExp} onChange={setSfhLeaseExp} />
-                        </div>
-                      </ConditionalBlock>
-                    </ConditionalBlock>
-
-                    <SectionDivider />
-
-                    <div>
-                      <Label required={isWholesaler} optional={!isWholesaler}>Existing Mortgage?</Label>
-                      <RadioGroup name="sfh-mort" value={sfhMort} onChange={setSfhMort}
-                        options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                      <FieldError msg={errors["sfhMort"] || ""} show={!!errors["sfhMort"]} />
-                    </div>
-
-                    <ConditionalBlock show={sfhMort === "yes"} title="Mortgage Details">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label optional>Approx. Balance</Label>
-                          <Input placeholder="$78,000 / I don't know" value={sfhMortBal} onChange={setSfhMortBal} />
-                        </div>
-                        <div>
-                          <Label optional>Interest Rate</Label>
-                          <Input placeholder="3.5% / I don't know" value={sfhMortRate} onChange={setSfhMortRate} />
-                        </div>
-                      </div>
-                      <div>
-                        <Label optional>Monthly Payment</Label>
-                        <Input placeholder="$610 / I don't know" value={sfhMortPmt} onChange={setSfhMortPmt} />
-                      </div>
-                    </ConditionalBlock>
-
-                    <div>
-                      <Label optional>Open to Creative Financing?</Label>
-                      <RadioGroup name="sfh-cf" value={sfhCf} onChange={setSfhCf}
-                        options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"unsure",label:"Not Sure"}]} />
-                    </div>
-
-                    <ConditionalBlock show={["yes","unsure"].includes(sfhCf)} title="Creative Finance Options — Check All That Apply">
-                      <CheckboxGroup
-                        options={["Subject-To (buyer takes over existing mortgage)","Seller Financing (you hold the note)","Lease Option","Other"]}
-                        selected={sfhCfOptions} onChange={setSfhCfOptions} />
-                    </ConditionalBlock>
-
-                    <SectionDivider />
-
-                    <div>
-                      <Label optional>Seller Motivation — pick all that apply</Label>
-                      <PillGroup
-                        options={["Divorce / Separation","Probate / Estate","Financial Hardship","Relocating","Tired Landlord","Downsizing","Pre-Foreclosure","Code Violations","Health / Life Change","Just Want to Sell Fast"]}
-                        selected={sfhMotivation} onChange={setSfhMotivation} />
-                    </div>
-                  </>
-                )}
-
-                {/* MULTIFAMILY */}
-                {asset === "mf" && (
-                  <>
-                    <h2 className="text-xl font-bold text-white border-b border-gray-700 pb-3">Multifamily <span className="text-blue-400">Details</span></h2>
-
-                    <div>
-                      <Label required>Property Address</Label>
-                      <Input placeholder="123 Main St, City, State ZIP" value={mfAddr} onChange={setMfAddr} hasError={!!errors["mfAddr"]} />
-                      <FieldError msg={errors["mfAddr"] || ""} show={!!errors["mfAddr"]} />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label required>Asking Price</Label>
-                        <Input placeholder="$850,000" value={mfPrice} onChange={setMfPrice} hasError={!!errors["mfPrice"]} />
-                        <FieldError msg={errors["mfPrice"] || ""} show={!!errors["mfPrice"]} />
-                      </div>
-                      <div>
-                        <Label required>Total Units</Label>
-                        <Input type="number" placeholder="24" value={mfUnits} onChange={setMfUnits} hasError={!!errors["mfUnits"]} />
-                        <FieldError msg={errors["mfUnits"] || ""} show={!!errors["mfUnits"]} />
-                      </div>
-                    </div>
-
-                    {/* 2-4 units */}
-                    <ConditionalBlock show={mfUnitCount >= 2 && mfUnitCount <= 4} title="Small Multifamily (2–4 Units)">
-                      <div>
-                        <Label optional>Occupancy</Label>
-                        <RadioGroup name="mf24-occ" value={mf24Occ} onChange={setMf24Occ}
-                          options={[{value:"vacant",label:"Vacant"},{value:"partial",label:"Partial"},{value:"full",label:"Fully Occupied"},{value:"idk",label:"I don't know"}]} />
-                      </div>
-                      <div>
-                        <Label optional>Gross Monthly Rents</Label>
-                        <Input placeholder="$3,200 / I don't know" value={mf24Rents} onChange={setMf24Rents} />
-                      </div>
-                      <div>
-                        <Label optional>Property Condition</Label>
-                        <Select value={mf24Cond} onChange={setMf24Cond}
-                          options={[{value:"",label:"Select or skip"},{value:"turnkey",label:"Turnkey"},{value:"light",label:"Light Updates"},{value:"moderate",label:"Moderate Rehab"},{value:"full",label:"Full Gut"},{value:"idk",label:"I don't know"}]} />
-                      </div>
-                      <div>
-                        <Label optional>Existing Mortgage?</Label>
-                        <RadioGroup name="mf24-mort" value={mf24Mort} onChange={setMf24Mort}
-                          options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                      </div>
-                      <ConditionalBlock show={mf24Mort === "yes"} title="Financing Details">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div><Label optional>Balance</Label><Input placeholder="$320,000 / I don't know" value={mf24MortBal} onChange={setMf24MortBal} /></div>
-                          <div><Label optional>Rate</Label><Input placeholder="5% / I don't know" value={mf24MortRate} onChange={setMf24MortRate} /></div>
-                        </div>
-                        <div>
-                          <Label optional>Assumable?</Label>
-                          <RadioGroup name="mf24-assume" value={mf24Assume} onChange={setMf24Assume}
-                            options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                        </div>
-                      </ConditionalBlock>
-                      <div>
-                        <Label optional>Open to Creative Finance?</Label>
-                        <RadioGroup name="mf24-cf" value={mf24Cf} onChange={setMf24Cf}
-                          options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"unsure",label:"Not Sure"}]} />
-                      </div>
-                    </ConditionalBlock>
-
-                    {/* 5-19 units */}
-                    <ConditionalBlock show={mfUnitCount >= 5 && mfUnitCount <= 19} title="Midsize Commercial (5–19 Units)">
-                      <div>
-                        <Label required>Occupancy %</Label>
-                        <Input type="number" placeholder="85" value={mf5Occ} onChange={setMf5Occ} />
-                      </div>
-                      <div>
-                        <Label required>Gross Monthly Rents</Label>
-                        <Input placeholder="$14,500 / I don't know" value={mf5Rents} onChange={setMf5Rents} />
-                      </div>
-                      <div>
-                        <Label optional>NOI</Label>
-                        <Input placeholder="$8,200 / I don't know" value={mf5Noi} onChange={setMf5Noi} />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><Label optional>Year Built</Label><Input placeholder="1988 / I don't know" value={mf5Year} onChange={setMf5Year} /></div>
-                        <div>
-                          <Label optional>Condition</Label>
-                          <Select value={mf5Cond} onChange={setMf5Cond}
-                            options={[{value:"",label:"Select or skip"},{value:"turnkey",label:"Turnkey"},{value:"light",label:"Light Updates"},{value:"moderate",label:"Moderate Rehab"},{value:"value-add",label:"Significant Value-Add"},{value:"idk",label:"I don't know"}]} />
-                        </div>
-                      </div>
-                      <div>
-                        <Label optional>Existing Mortgage?</Label>
-                        <RadioGroup name="mf5-mort" value={mf5Mort} onChange={setMf5Mort}
-                          options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                      </div>
-                      <ConditionalBlock show={mf5Mort === "yes"} title="Financing Details">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div><Label optional>Balance</Label><Input placeholder="$600,000 / I don't know" value={mf5MortBal} onChange={setMf5MortBal} /></div>
-                          <div><Label optional>Rate</Label><Input placeholder="5.5% / I don't know" value={mf5MortRate} onChange={setMf5MortRate} /></div>
-                        </div>
-                        <div>
-                          <Label optional>Assumable?</Label>
-                          <RadioGroup name="mf5-assume" value={mf5Assume} onChange={setMf5Assume}
-                            options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                        </div>
-                      </ConditionalBlock>
-                      <div>
-                        <Label optional>T12 / Rent Roll Notes</Label>
-                        <Textarea placeholder="Available on request / summary here..." value={mf5T12} onChange={setMf5T12} />
-                      </div>
-                    </ConditionalBlock>
-
-                    {/* 20+ units */}
-                    <ConditionalBlock show={mfUnitCount >= 20} title="Large Commercial (20+ Units)">
-                      <div>
-                        <Label required>Occupancy %</Label>
-                        <Input type="number" placeholder="88" value={mf20Occ} onChange={setMf20Occ} />
-                      </div>
-                      <div>
-                        <Label required>Gross Monthly Rents</Label>
-                        <Input placeholder="$42,000 / I don't know" value={mf20Rents} onChange={setMf20Rents} />
-                      </div>
-                      <div>
-                        <Label required>Existing Mortgage?</Label>
-                        <RadioGroup name="mf20-mort" value={mf20Mort} onChange={setMf20Mort}
-                          options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                      </div>
-                      <ConditionalBlock show={mf20Mort === "yes"} title="Financing Details">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div><Label optional>Balance</Label><Input placeholder="$2,100,000 / I don't know" value={mf20MortBal} onChange={setMf20MortBal} /></div>
-                          <div><Label optional>Rate</Label><Input placeholder="5.75% / I don't know" value={mf20MortRate} onChange={setMf20MortRate} /></div>
-                        </div>
-                        <div>
-                          <Label optional>Assumable?</Label>
-                          <RadioGroup name="mf20-assume" value={mf20Assume} onChange={setMf20Assume}
-                            options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                        </div>
-                      </ConditionalBlock>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><Label optional>NOI</Label><Input placeholder="$24,000 / I don't know" value={mf20Noi} onChange={setMf20Noi} /></div>
-                        <div><Label optional>Cap Rate</Label><Input placeholder="6.5% / I don't know" value={mf20Cap} onChange={setMf20Cap} /></div>
-                      </div>
-                      <div>
-                        <Label optional>T12 / Rent Roll / CapEx Notes</Label>
-                        <Textarea placeholder="Available on request / summary here..." value={mf20T12} onChange={setMf20T12} />
-                      </div>
-                      <div>
-                        <Label optional>Open to Seller Financing?</Label>
-                        <RadioGroup name="mf20-sf" value={mf20Sf} onChange={setMf20Sf}
-                          options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"unsure",label:"Not Sure"}]} />
-                      </div>
-                    </ConditionalBlock>
-                  </>
-                )}
-
-                {/* MHP */}
-                {asset === "mhp" && (
-                  <>
-                    <h2 className="text-xl font-bold text-white border-b border-gray-700 pb-3">Mobile Home Park <span className="text-blue-400">Details</span></h2>
-
-                    <div>
-                      <Label required>Property Address</Label>
-                      <Input placeholder="123 Park Rd, City, State ZIP" value={mhpAddr} onChange={setMhpAddr} hasError={!!errors["mhpAddr"]} />
-                      <FieldError msg={errors["mhpAddr"] || ""} show={!!errors["mhpAddr"]} />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label required>Asking Price</Label>
-                        <Input placeholder="$1,200,000" value={mhpPrice} onChange={setMhpPrice} hasError={!!errors["mhpPrice"]} />
-                        <FieldError msg={errors["mhpPrice"] || ""} show={!!errors["mhpPrice"]} />
-                      </div>
-                      <div>
-                        <Label required>Total Lots</Label>
-                        <Input type="number" placeholder="48" value={mhpLots} onChange={setMhpLots} hasError={!!errors["mhpLots"]} />
-                        <FieldError msg={errors["mhpLots"] || ""} show={!!errors["mhpLots"]} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label required>Occupied Lots / Occupancy %</Label>
-                      <Input placeholder="38 lots / 79% / I don't know" value={mhpOcc} onChange={setMhpOcc} hasError={!!errors["mhpOcc"]} />
-                      <FieldError msg={errors["mhpOcc"] || ""} show={!!errors["mhpOcc"]} />
-                    </div>
-
-                    <div>
-                      <Label required>Water & Sewer Type</Label>
-                      <Select value={mhpWater} onChange={setMhpWater} hasError={!!errors["mhpWater"]}
-                        options={[
-                          {value:"",label:"Select"},
-                          {value:"city-city",label:"City Water + City Sewer"},
-                          {value:"well-septic",label:"Well + Septic"},
-                          {value:"city-septic",label:"City Water + Septic"},
-                          {value:"well-city",label:"Well + City Sewer"},
-                          {value:"idk",label:"I don't know"},
-                        ]} />
-                      <FieldError msg={errors["mhpWater"] || ""} show={!!errors["mhpWater"]} />
-                    </div>
-
-                    <div>
-                      <Label required>Home Ownership Type</Label>
-                      <RadioGroup name="mhp-poh" value={mhpPoh} onChange={setMhpPoh}
-                        options={[{value:"toh",label:"Tenant-Owned (TOH)"},{value:"poh",label:"Park-Owned (POH)"},{value:"mixed",label:"Mixed"}]} />
-                      <FieldError msg={errors["mhpPoh"] || ""} show={!!errors["mhpPoh"]} />
-                    </div>
-
-                    <ConditionalBlock show={["poh","mixed"].includes(mhpPoh)} title="Park-Owned Home Details">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><Label optional>Number of POH Units</Label><Input type="number" placeholder="12" value={mhpPohUnits} onChange={setMhpPohUnits} /></div>
-                        <div>
-                          <Label optional>POH Condition</Label>
-                          <Select value={mhpPohCond} onChange={setMhpPohCond}
-                            options={[{value:"",label:"Select or skip"},{value:"good",label:"Good"},{value:"fair",label:"Fair"},{value:"poor",label:"Poor"},{value:"idk",label:"I don't know"}]} />
-                        </div>
-                      </div>
-                    </ConditionalBlock>
-
-                    <SectionDivider />
-
-                    <div>
-                      <Label required={isWholesaler} optional={!isWholesaler}>Gross Monthly Income</Label>
-                      <Input placeholder="$19,200 / I don't know" value={mhpInc} onChange={setMhpInc} hasError={!!errors["mhpInc"]} />
-                      <FieldError msg={errors["mhpInc"] || ""} show={!!errors["mhpInc"]} />
-                    </div>
-
-                    <div>
-                      <Label optional>Lot Rent Amount (per lot/mo)</Label>
-                      <Input placeholder="$400/mo / I don't know" value={mhpLotRent} onChange={setMhpLotRent} />
-                    </div>
-
-                    <div>
-                      <Label optional>Infrastructure Age / Condition</Label>
-                      <RadioGroup name="mhp-infra" value={mhpInfra} onChange={setMhpInfra}
-                        options={[{value:"good",label:"Good"},{value:"fair",label:"Fair"},{value:"poor",label:"Poor / Aging"},{value:"idk",label:"I don't know"}]} />
-                    </div>
-
-                    <div>
-                      <Label optional>Existing Financing?</Label>
-                      <RadioGroup name="mhp-mort" value={mhpMort} onChange={setMhpMort}
-                        options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                    </div>
-
-                    <ConditionalBlock show={mhpMort === "yes"} title="Financing Details">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><Label optional>Balance</Label><Input placeholder="$650,000 / I don't know" value={mhpMortBal} onChange={setMhpMortBal} /></div>
-                        <div><Label optional>Rate</Label><Input placeholder="5% / I don't know" value={mhpMortRate} onChange={setMhpMortRate} /></div>
-                      </div>
-                      <div>
-                        <Label optional>Assumable?</Label>
-                        <RadioGroup name="mhp-assume" value={mhpAssume} onChange={setMhpAssume}
-                          options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                      </div>
-                    </ConditionalBlock>
-
-                    <div>
-                      <Label optional>Any City / County Violations?</Label>
-                      <RadioGroup name="mhp-viol" value={mhpViol} onChange={setMhpViol}
-                        options={[{value:"yes",label:"Yes"},{value:"no",label:"No"}]} />
-                    </div>
-                    <ConditionalBlock show={mhpViol === "yes"} title="Describe Violations">
-                      <Textarea placeholder="Describe any known violations or compliance issues..." value={mhpViolDesc} onChange={setMhpViolDesc} />
-                    </ConditionalBlock>
-
-                    <div>
-                      <Label optional>Known Environmental Issues?</Label>
-                      <RadioGroup name="mhp-env" value={mhpEnv} onChange={setMhpEnv}
-                        options={[{value:"yes",label:"Yes"},{value:"no",label:"No"}]} />
-                    </div>
-                    <ConditionalBlock show={mhpEnv === "yes"} title="Describe Environmental Issues">
-                      <Textarea placeholder="Describe any known environmental concerns..." value={mhpEnvDesc} onChange={setMhpEnvDesc} />
-                    </ConditionalBlock>
-
-                    <div>
-                      <Label optional>Open to Seller Financing?</Label>
-                      <RadioGroup name="mhp-sf" value={mhpSf} onChange={setMhpSf}
-                        options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"unsure",label:"Not Sure"}]} />
-                    </div>
-                  </>
-                )}
-
-                {/* RV PARK */}
-                {asset === "rv" && (
-                  <>
-                    <h2 className="text-xl font-bold text-white border-b border-gray-700 pb-3">RV Park / Campground <span className="text-blue-400">Details</span></h2>
-
-                    <div>
-                      <Label required>Property Address</Label>
-                      <Input placeholder="123 Camp Rd, City, State ZIP" value={rvAddr} onChange={setRvAddr} hasError={!!errors["rvAddr"]} />
-                      <FieldError msg={errors["rvAddr"] || ""} show={!!errors["rvAddr"]} />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label required>Asking Price</Label>
-                        <Input placeholder="$2,400,000" value={rvPrice} onChange={setRvPrice} hasError={!!errors["rvPrice"]} />
-                        <FieldError msg={errors["rvPrice"] || ""} show={!!errors["rvPrice"]} />
-                      </div>
-                      <div>
-                        <Label required>Total Sites</Label>
-                        <Input type="number" placeholder="85" value={rvSites} onChange={setRvSites} hasError={!!errors["rvSites"]} />
-                        <FieldError msg={errors["rvSites"] || ""} show={!!errors["rvSites"]} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label required>Seasonal or Year-Round?</Label>
-                      <RadioGroup name="rv-season" value={rvSeason} onChange={setRvSeason}
-                        options={[{value:"seasonal",label:"Seasonal"},{value:"yearround",label:"Year-Round"}]} />
-                      <FieldError msg={errors["rvSeason"] || ""} show={!!errors["rvSeason"]} />
-                    </div>
-
-                    <ConditionalBlock show={rvSeason === "seasonal"} title="Seasonal Details">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label required>Season Opens</Label>
-                          <Select value={rvSeasonOpen} onChange={setRvSeasonOpen}
-                            options={[{value:"",label:"Select month"},...months.map(m=>({value:m,label:m}))]} />
-                        </div>
-                        <div>
-                          <Label required>Season Closes</Label>
-                          <Select value={rvSeasonClose} onChange={setRvSeasonClose}
-                            options={[{value:"",label:"Select month"},...months.map(m=>({value:m,label:m}))]} />
-                        </div>
-                      </div>
-                      <div>
-                        <Label optional>Peak Season Avg Occupancy</Label>
-                        <Input placeholder="90% / I don't know" value={rvPeakOcc} onChange={setRvPeakOcc} />
-                      </div>
-                    </ConditionalBlock>
-
-                    <ConditionalBlock show={rvSeason === "yearround"} title="Year-Round Details">
-                      <div>
-                        <Label required>Current Occupancy %</Label>
-                        <Input placeholder="75%" value={rvYrOcc} onChange={setRvYrOcc} />
-                      </div>
-                      <div>
-                        <Label optional>Long-Term / Permanent Residents?</Label>
-                        <RadioGroup name="rv-lt" value={rvLt} onChange={setRvLt}
-                          options={[{value:"yes",label:"Yes"},{value:"no",label:"No"}]} />
-                      </div>
-                      <ConditionalBlock show={rvLt === "yes"}>
-                        <div>
-                          <Label optional>Approx. How Many?</Label>
-                          <Input type="number" placeholder="12" value={rvLtCount} onChange={setRvLtCount} />
-                        </div>
-                      </ConditionalBlock>
-                    </ConditionalBlock>
-
-                    <SectionDivider />
-
-                    <div>
-                      <Label optional>Site Type Breakdown — check all that apply</Label>
-                      <CheckboxGroup
-                        options={["Full hookup (water, electric, sewer)","Water & electric only","Electric only","Dry camping / primitive","Cabin / glamping units"]}
-                        selected={rvSiteTypes} onChange={setRvSiteTypes} />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label required={isWholesaler} optional={!isWholesaler}>Gross Annual Revenue</Label>
-                        <Input placeholder="$320,000 / I don't know" value={rvRev} onChange={setRvRev} hasError={!!errors["rvRev"]} />
-                        <FieldError msg={errors["rvRev"] || ""} show={!!errors["rvRev"]} />
-                      </div>
-                      <div>
-                        <Label optional>Management Type</Label>
-                        <Select value={rvMgmt} onChange={setRvMgmt}
-                          options={[{value:"",label:"Select or skip"},{value:"self",label:"Self-managed"},{value:"third",label:"Third-party management"}]} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label optional>Booking Platform</Label>
-                      <Input placeholder="Campspot, Hipcamp, direct, none, I don't know..." value={rvBooking} onChange={setRvBooking} />
-                    </div>
-
-                    <div>
-                      <Label optional>Amenities — check all that apply</Label>
-                      <PillGroup
-                        options={["Pool","Bathhouse","Laundry","Playground","Camp Store","Boat Launch","WiFi","Fishing","Mini Golf"]}
-                        selected={rvAmenities} onChange={setRvAmenities} />
-                    </div>
-
-                    <div>
-                      <Label required={isWholesaler} optional={!isWholesaler}>Existing Financing?</Label>
-                      <RadioGroup name="rv-mort" value={rvMort} onChange={setRvMort}
-                        options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                      <FieldError msg={errors["rvMort"] || ""} show={!!errors["rvMort"]} />
-                    </div>
-
-                    <ConditionalBlock show={rvMort === "yes"} title="Financing Details">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><Label optional>Balance</Label><Input placeholder="$900,000 / I don't know" value={rvMortBal} onChange={setRvMortBal} /></div>
-                        <div><Label optional>Rate</Label><Input placeholder="5.25% / I don't know" value={rvMortRate} onChange={setRvMortRate} /></div>
-                      </div>
-                      <div>
-                        <Label optional>Assumable?</Label>
-                        <RadioGroup name="rv-assume" value={rvAssume} onChange={setRvAssume}
-                          options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"idk",label:"I don't know"}]} />
-                      </div>
-                    </ConditionalBlock>
-
-                    <div>
-                      <Label optional>Open to Seller Financing?</Label>
-                      <RadioGroup name="rv-sf" value={rvSf} onChange={setRvSf}
-                        options={[{value:"yes",label:"Yes"},{value:"no",label:"No"},{value:"unsure",label:"Not Sure"}]} />
-                    </div>
-                  </>
-                )}
-
-                <NavButtons onBack={() => goTo(1)} onNext={() => goTo(3)} />
-              </>
-            )}
-
-            {/* ── STEP 4: Final ── */}
-            {step === 3 && (
-              <>
-                <h2 className="text-xl font-bold text-white border-b border-gray-700 pb-3">Almost <span className="text-blue-400">Done.</span></h2>
-
-                <div>
-                  <Label optional>Anything else we should know?</Label>
-                  <Textarea placeholder="Timeline, additional context, or anything else..." value={notes} onChange={setNotes} />
-                </div>
-
-                <div>
-                  <Label optional>How did you hear about us?</Label>
-                  <Select value={hearAbout} onChange={setHearAbout}
-                    options={[
-                      {value:"",label:"Select"},
-                      {value:"instagram",label:"Instagram"},
-                      {value:"facebook",label:"Facebook"},
-                      {value:"referral",label:"Referral"},
-                      {value:"google",label:"Google Search"},
-                      {value:"meetup",label:"Meetup / Event"},
-                      {value:"subto",label:"SubTo / Pace Morby Community"},
-                      {value:"other",label:"Other"},
-                    ]} />
-                </div>
-
-                {/* Referral block — non-owners only */}
-                {isWholesaler && (
-                  <ConditionalBlock show title="Referral & Assignment">
-                    <div>
-                      <Label optional>Referral Fee Expectation</Label>
-                      <Input placeholder="$2,500 flat / 50% of spread / negotiable..." value={referralFee} onChange={setReferralFee} />
-                    </div>
-                    <div>
-                      <Label>Your Status on This Deal</Label>
-                      <RadioGroup name="deal-status" value={dealStatus} onChange={setDealStatus}
-                        options={[{value:"contract",label:"I have it under contract"},{value:"referring",label:"I'm referring the lead"},{value:"other",label:"Other"}]} />
-                    </div>
-                  </ConditionalBlock>
-                )}
-
-                <div>
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={consent}
-                      onChange={e => setConsent(e.target.checked)}
-                      className="accent-blue-500 w-4 h-4 mt-0.5 flex-shrink-0"
+                        { value: "yes", label: "Yes, I own it" },
+                        { value: "no", label: "No, I'm a wholesaler / agent / bird dog" },
+                      ]}
                     />
-                    <span className="text-sm text-gray-300">I confirm this information is accurate to the best of my knowledge.</span>
-                  </label>
-                  <FieldError msg={errors["consent"] || ""} show={!!errors["consent"]} />
-                </div>
 
-                {submitError && (
-                  <div className="bg-red-900/40 border border-red-500 text-red-300 rounded-lg px-4 py-3 text-sm mb-4">
-                    {submitError}
+                    <Subsection show={isWholesaler} title="Your role">
+                      <RadioTiles
+                        id="role"
+                        label="Which fits best?"
+                        optional
+                        columns={2}
+                        value={role}
+                        onChange={setRole}
+                        options={[
+                          { value: "birddog", label: "Bird dog" },
+                          { value: "wholesaler", label: "Wholesaler / investor" },
+                          { value: "agent", label: "Agent / broker" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </Subsection>
+
+                    <Divider />
+
+                    <TextField
+                      id="name"
+                      label="Full name"
+                      required
+                      autoComplete="name"
+                      placeholder="Jane Smith"
+                      value={name}
+                      onChange={bind(setName, "name")}
+                      error={errors.name}
+                    />
+
+                    <Pair>
+                      <TextField
+                        id="email"
+                        type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        label="Email"
+                        required
+                        placeholder="jane@email.com"
+                        value={email}
+                        onChange={bind(setEmail, "email")}
+                        error={errors.email}
+                      />
+                      <TextField
+                        id="phone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        label="Phone"
+                        required
+                        placeholder="(616) 555-0100"
+                        value={phone}
+                        onChange={bind(setPhone, "phone")}
+                        error={errors.phone}
+                      />
+                    </Pair>
+
+                    <RadioTiles
+                      id="contactPref"
+                      label="Preferred contact method"
+                      optional
+                      columns={3}
+                      value={contactPref}
+                      onChange={setContactPref}
+                      options={[
+                        { value: "call", label: "Call" },
+                        { value: "text", label: "Text" },
+                        { value: "email", label: "Email" },
+                      ]}
+                    />
                   </div>
-                )}
-                <NavButtons onBack={() => goTo(2)} onNext={handleSubmit} nextLabel={submitting ? "Submitting…" : "Submit Deal →"} isSubmit disabled={submitting} />
-              </>
-            )}
+                  <StepNav />
+                </>
+              )}
 
-          </div>
+              {/* Step 2: property type */}
+              {step === 1 && (
+                <>
+                  <StepHeading
+                    step={1}
+                    title="Property type"
+                    lede="Pick the one that fits best. If it's in between, pick the closest and explain in the notes at the end."
+                  />
+                  <fieldset className="min-w-0" aria-describedby={errors.asset ? "asset-error" : undefined}>
+                    <legend className="sr-only">Property type</legend>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {PROPERTY_TYPES.map((t) => {
+                        const Icon = t.icon;
+                        return (
+                          <label key={t.value} className="choice items-center gap-4 p-5">
+                            <input
+                              type="radio"
+                              name="asset"
+                              value={t.value}
+                              checked={asset === t.value}
+                              onChange={() => {
+                                setAsset(t.value);
+                                clearErr("asset");
+                              }}
+                              className="peer sr-only"
+                            />
+                            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-navy text-white peer-focus-visible:ring-4 peer-focus-visible:ring-brand/30">
+                              <Icon className="size-6" strokeWidth={1.75} />
+                            </span>
+                            <span>
+                              <span className="block font-display text-lg font-semibold leading-tight text-navy">
+                                {t.name}
+                              </span>
+                              <span className="mt-1 block text-sm text-ink-muted">{t.desc}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <Hint id="asset" error={errors.asset} />
+                  </fieldset>
+                  <StepNav onBack={back} />
+                </>
+              )}
+
+              {/* Step 3: deal details */}
+              {step === 2 && (
+                <>
+                  {asset === "sfh" && (
+                    <>
+                      <StepHeading
+                        step={2}
+                        title="Single family details"
+                        lede="The basics first, then condition, occupancy and financing. Skip what you don't know."
+                      />
+                      <div className="space-y-6">
+                        <TextField
+                          id="sfhAddr"
+                          label="Property address"
+                          required
+                          autoComplete="street-address"
+                          placeholder="123 Main St, Grand Haven, MI 49417"
+                          value={sfhAddr}
+                          onChange={bind(setSfhAddr, "sfhAddr")}
+                          error={errors.sfhAddr}
+                        />
+
+                        <Pair>
+                          <TextField
+                            id="sfhPrice"
+                            label="Asking price"
+                            required
+                            inputMode="decimal"
+                            placeholder="$120,000"
+                            value={sfhPrice}
+                            onChange={bind(setSfhPrice, "sfhPrice")}
+                            error={errors.sfhPrice}
+                          />
+                          <TextField
+                            id="sfhArv"
+                            label="Estimated ARV"
+                            required={isWholesaler}
+                            optional={!isWholesaler}
+                            inputMode="decimal"
+                            placeholder="$185,000"
+                            help="What's it worth fully fixed up?"
+                            value={sfhArv}
+                            onChange={bind(setSfhArv, "sfhArv")}
+                            error={errors.sfhArv}
+                          />
+                        </Pair>
+
+                        <Pair>
+                          <SelectField
+                            id="sfhBeds"
+                            label="Bedrooms"
+                            required
+                            value={sfhBeds}
+                            onChange={bind(setSfhBeds, "sfhBeds")}
+                            error={errors.sfhBeds}
+                            options={["1", "2", "3", "4", "5+"].map((v) => ({ value: v, label: v }))}
+                          />
+                          <SelectField
+                            id="sfhBaths"
+                            label="Bathrooms"
+                            required
+                            value={sfhBaths}
+                            onChange={bind(setSfhBaths, "sfhBaths")}
+                            error={errors.sfhBaths}
+                            options={["1", "1.5", "2", "2.5", "3+"].map((v) => ({ value: v, label: v }))}
+                          />
+                        </Pair>
+
+                        <Pair>
+                          <TextField
+                            id="sfhSqft"
+                            label="Square footage"
+                            optional
+                            placeholder="1,400 sqft / I don't know"
+                            value={sfhSqft}
+                            onChange={setSfhSqft}
+                          />
+                          <TextField
+                            id="sfhYear"
+                            label="Year built"
+                            optional
+                            placeholder="1978 / I don't know"
+                            value={sfhYear}
+                            onChange={setSfhYear}
+                          />
+                        </Pair>
+
+                        <RadioTiles
+                          id="sfhCond"
+                          label="Property condition"
+                          required
+                          value={sfhCond}
+                          onChange={bind(setSfhCond, "sfhCond")}
+                          error={errors.sfhCond}
+                          options={[
+                            { value: "turnkey", label: "Turnkey" },
+                            { value: "light", label: "Light updates" },
+                            { value: "moderate", label: "Moderate rehab" },
+                            { value: "full", label: "Full gut" },
+                            { value: "tear", label: "Tear down" },
+                          ]}
+                        />
+
+                        <Subsection show={["moderate", "full", "tear"].includes(sfhCond)} title="Repair details">
+                          <TextField
+                            id="sfhRepairCost"
+                            label="Estimated repair cost"
+                            optional
+                            inputMode="decimal"
+                            placeholder="$45,000 / I don't know yet"
+                            value={sfhRepairCost}
+                            onChange={setSfhRepairCost}
+                          />
+                          <TextAreaField
+                            id="sfhRepairDesc"
+                            label="Describe the repairs"
+                            optional
+                            placeholder="Roof, HVAC, kitchen and bath gut..."
+                            value={sfhRepairDesc}
+                            onChange={setSfhRepairDesc}
+                          />
+                        </Subsection>
+
+                        <Divider />
+
+                        <RadioTiles
+                          id="sfhOcc"
+                          label="Occupancy status"
+                          optional
+                          value={sfhOcc}
+                          onChange={setSfhOcc}
+                          options={[
+                            { value: "vacant", label: "Vacant" },
+                            { value: "owner", label: "Owner occupied" },
+                            { value: "tenant", label: "Tenant occupied" },
+                            { value: "idk", label: "I don't know" },
+                          ]}
+                        />
+
+                        <Subsection show={sfhOcc === "tenant"} title="Tenant info">
+                          <Pair>
+                            <TextField
+                              id="sfhRent"
+                              label="Monthly rent"
+                              optional
+                              inputMode="decimal"
+                              placeholder="$1,100 / I don't know"
+                              value={sfhRent}
+                              onChange={setSfhRent}
+                            />
+                            <SelectField
+                              id="sfhLease"
+                              label="Lease status"
+                              optional
+                              placeholder="Select or skip"
+                              value={sfhLease}
+                              onChange={setSfhLease}
+                              options={[
+                                { value: "mtm", label: "Month to month" },
+                                { value: "fixed", label: "Fixed term" },
+                                { value: "idk", label: "I don't know" },
+                              ]}
+                            />
+                          </Pair>
+                          {sfhLease === "fixed" && (
+                            <TextField
+                              id="sfhLeaseExp"
+                              label="Lease expiration"
+                              optional
+                              type="date"
+                              value={sfhLeaseExp}
+                              onChange={setSfhLeaseExp}
+                            />
+                          )}
+                        </Subsection>
+
+                        <Divider />
+
+                        <RadioTiles
+                          id="sfhMort"
+                          label="Existing mortgage?"
+                          required={isWholesaler}
+                          optional={!isWholesaler}
+                          columns={3}
+                          value={sfhMort}
+                          onChange={bind(setSfhMort, "sfhMort")}
+                          error={errors.sfhMort}
+                          options={YES_NO_IDK}
+                        />
+
+                        <Subsection show={sfhMort === "yes"} title="Mortgage details">
+                          <Pair>
+                            <TextField
+                              id="sfhMortBal"
+                              label="Approximate balance"
+                              optional
+                              inputMode="decimal"
+                              placeholder="$78,000 / I don't know"
+                              value={sfhMortBal}
+                              onChange={setSfhMortBal}
+                            />
+                            <TextField
+                              id="sfhMortRate"
+                              label="Interest rate"
+                              optional
+                              inputMode="decimal"
+                              placeholder="3.5% / I don't know"
+                              value={sfhMortRate}
+                              onChange={setSfhMortRate}
+                            />
+                          </Pair>
+                          <TextField
+                            id="sfhMortPmt"
+                            label="Monthly payment"
+                            optional
+                            inputMode="decimal"
+                            placeholder="$610 / I don't know"
+                            value={sfhMortPmt}
+                            onChange={setSfhMortPmt}
+                          />
+                        </Subsection>
+
+                        <RadioTiles
+                          id="sfhCf"
+                          label="Open to creative financing?"
+                          optional
+                          columns={3}
+                          value={sfhCf}
+                          onChange={setSfhCf}
+                          options={YES_NO_UNSURE}
+                        />
+
+                        <Subsection show={["yes", "unsure"].includes(sfhCf)} title="Creative finance options">
+                          <CheckTiles
+                            id="sfhCfOptions"
+                            label="Check all that apply"
+                            optional
+                            options={[
+                              "Subject-To (buyer takes over existing mortgage)",
+                              "Seller Financing (you hold the note)",
+                              "Lease Option",
+                              "Other",
+                            ]}
+                            selected={sfhCfOptions}
+                            onChange={setSfhCfOptions}
+                          />
+                        </Subsection>
+
+                        <Divider />
+
+                        <Pills
+                          label="Seller motivation, pick all that apply"
+                          optional
+                          options={[
+                            "Divorce / Separation",
+                            "Probate / Estate",
+                            "Financial Hardship",
+                            "Relocating",
+                            "Tired Landlord",
+                            "Downsizing",
+                            "Pre-Foreclosure",
+                            "Code Violations",
+                            "Health / Life Change",
+                            "Just Want to Sell Fast",
+                          ]}
+                          selected={sfhMotivation}
+                          onChange={setSfhMotivation}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {asset === "mf" && (
+                    <>
+                      <StepHeading
+                        step={2}
+                        title="Multifamily details"
+                        lede="Enter the unit count and the right questions for that size will appear."
+                      />
+                      <div className="space-y-6">
+                        <TextField
+                          id="mfAddr"
+                          label="Property address"
+                          required
+                          autoComplete="street-address"
+                          placeholder="123 Main St, City, State ZIP"
+                          value={mfAddr}
+                          onChange={bind(setMfAddr, "mfAddr")}
+                          error={errors.mfAddr}
+                        />
+
+                        <Pair>
+                          <TextField
+                            id="mfPrice"
+                            label="Asking price"
+                            required
+                            inputMode="decimal"
+                            placeholder="$850,000"
+                            value={mfPrice}
+                            onChange={bind(setMfPrice, "mfPrice")}
+                            error={errors.mfPrice}
+                          />
+                          <TextField
+                            id="mfUnits"
+                            label="Total units"
+                            required
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="24"
+                            value={mfUnits}
+                            onChange={bind(setMfUnits, "mfUnits")}
+                            error={errors.mfUnits}
+                          />
+                        </Pair>
+
+                        <Subsection show={mfIs24} title="Small multifamily (2 to 4 units)">
+                          <RadioTiles
+                            id="mf24Occ"
+                            label="Occupancy"
+                            optional
+                            value={mf24Occ}
+                            onChange={setMf24Occ}
+                            options={[
+                              { value: "vacant", label: "Vacant" },
+                              { value: "partial", label: "Partial" },
+                              { value: "full", label: "Fully occupied" },
+                              { value: "idk", label: "I don't know" },
+                            ]}
+                          />
+                          <TextField
+                            id="mf24Rents"
+                            label="Gross monthly rents"
+                            optional
+                            inputMode="decimal"
+                            placeholder="$3,200 / I don't know"
+                            value={mf24Rents}
+                            onChange={setMf24Rents}
+                          />
+                          <SelectField
+                            id="mf24Cond"
+                            label="Property condition"
+                            optional
+                            placeholder="Select or skip"
+                            value={mf24Cond}
+                            onChange={setMf24Cond}
+                            options={[
+                              { value: "turnkey", label: "Turnkey" },
+                              { value: "light", label: "Light updates" },
+                              { value: "moderate", label: "Moderate rehab" },
+                              { value: "full", label: "Full gut" },
+                              { value: "idk", label: "I don't know" },
+                            ]}
+                          />
+                          <RadioTiles
+                            id="mf24Mort"
+                            label="Existing mortgage?"
+                            optional
+                            columns={3}
+                            value={mf24Mort}
+                            onChange={setMf24Mort}
+                            options={YES_NO_IDK}
+                          />
+                          {mf24Mort === "yes" && (
+                            <>
+                              <Pair>
+                                <TextField
+                                  id="mf24MortBal"
+                                  label="Balance"
+                                  optional
+                                  inputMode="decimal"
+                                  placeholder="$320,000 / I don't know"
+                                  value={mf24MortBal}
+                                  onChange={setMf24MortBal}
+                                />
+                                <TextField
+                                  id="mf24MortRate"
+                                  label="Rate"
+                                  optional
+                                  inputMode="decimal"
+                                  placeholder="5% / I don't know"
+                                  value={mf24MortRate}
+                                  onChange={setMf24MortRate}
+                                />
+                              </Pair>
+                              <RadioTiles
+                                id="mf24Assume"
+                                label="Assumable?"
+                                optional
+                                columns={3}
+                                value={mf24Assume}
+                                onChange={setMf24Assume}
+                                options={YES_NO_IDK}
+                              />
+                            </>
+                          )}
+                          <RadioTiles
+                            id="mf24Cf"
+                            label="Open to creative finance?"
+                            optional
+                            columns={3}
+                            value={mf24Cf}
+                            onChange={setMf24Cf}
+                            options={YES_NO_UNSURE}
+                          />
+                        </Subsection>
+
+                        <Subsection show={mfIs5} title="Midsize commercial (5 to 19 units)">
+                          <Pair>
+                            <TextField
+                              id="mf5Occ"
+                              label="Occupancy %"
+                              required
+                              inputMode="decimal"
+                              placeholder="85"
+                              value={mf5Occ}
+                              onChange={bind(setMf5Occ, "mf5Occ")}
+                              error={errors.mf5Occ}
+                            />
+                            <TextField
+                              id="mf5Rents"
+                              label="Gross monthly rents"
+                              required
+                              inputMode="decimal"
+                              placeholder="$14,500"
+                              value={mf5Rents}
+                              onChange={bind(setMf5Rents, "mf5Rents")}
+                              error={errors.mf5Rents}
+                            />
+                          </Pair>
+                          <TextField
+                            id="mf5Noi"
+                            label="NOI"
+                            optional
+                            inputMode="decimal"
+                            placeholder="$8,200 / I don't know"
+                            value={mf5Noi}
+                            onChange={setMf5Noi}
+                          />
+                          <Pair>
+                            <TextField
+                              id="mf5Year"
+                              label="Year built"
+                              optional
+                              placeholder="1988 / I don't know"
+                              value={mf5Year}
+                              onChange={setMf5Year}
+                            />
+                            <SelectField
+                              id="mf5Cond"
+                              label="Condition"
+                              optional
+                              placeholder="Select or skip"
+                              value={mf5Cond}
+                              onChange={setMf5Cond}
+                              options={[
+                                { value: "turnkey", label: "Turnkey" },
+                                { value: "light", label: "Light updates" },
+                                { value: "moderate", label: "Moderate rehab" },
+                                { value: "value-add", label: "Significant value-add" },
+                                { value: "idk", label: "I don't know" },
+                              ]}
+                            />
+                          </Pair>
+                          <RadioTiles
+                            id="mf5Mort"
+                            label="Existing mortgage?"
+                            optional
+                            columns={3}
+                            value={mf5Mort}
+                            onChange={setMf5Mort}
+                            options={YES_NO_IDK}
+                          />
+                          {mf5Mort === "yes" && (
+                            <>
+                              <Pair>
+                                <TextField
+                                  id="mf5MortBal"
+                                  label="Balance"
+                                  optional
+                                  inputMode="decimal"
+                                  placeholder="$600,000 / I don't know"
+                                  value={mf5MortBal}
+                                  onChange={setMf5MortBal}
+                                />
+                                <TextField
+                                  id="mf5MortRate"
+                                  label="Rate"
+                                  optional
+                                  inputMode="decimal"
+                                  placeholder="5.5% / I don't know"
+                                  value={mf5MortRate}
+                                  onChange={setMf5MortRate}
+                                />
+                              </Pair>
+                              <RadioTiles
+                                id="mf5Assume"
+                                label="Assumable?"
+                                optional
+                                columns={3}
+                                value={mf5Assume}
+                                onChange={setMf5Assume}
+                                options={YES_NO_IDK}
+                              />
+                            </>
+                          )}
+                          <TextAreaField
+                            id="mf5T12"
+                            label="T12 / rent roll notes"
+                            optional
+                            placeholder="Available on request, or a summary here..."
+                            value={mf5T12}
+                            onChange={setMf5T12}
+                          />
+                        </Subsection>
+
+                        <Subsection show={mfIs20} title="Large commercial (20+ units)">
+                          <Pair>
+                            <TextField
+                              id="mf20Occ"
+                              label="Occupancy %"
+                              required
+                              inputMode="decimal"
+                              placeholder="88"
+                              value={mf20Occ}
+                              onChange={bind(setMf20Occ, "mf20Occ")}
+                              error={errors.mf20Occ}
+                            />
+                            <TextField
+                              id="mf20Rents"
+                              label="Gross monthly rents"
+                              required
+                              inputMode="decimal"
+                              placeholder="$42,000"
+                              value={mf20Rents}
+                              onChange={bind(setMf20Rents, "mf20Rents")}
+                              error={errors.mf20Rents}
+                            />
+                          </Pair>
+                          <RadioTiles
+                            id="mf20Mort"
+                            label="Existing mortgage?"
+                            required
+                            columns={3}
+                            value={mf20Mort}
+                            onChange={bind(setMf20Mort, "mf20Mort")}
+                            error={errors.mf20Mort}
+                            options={YES_NO_IDK}
+                          />
+                          {mf20Mort === "yes" && (
+                            <>
+                              <Pair>
+                                <TextField
+                                  id="mf20MortBal"
+                                  label="Balance"
+                                  optional
+                                  inputMode="decimal"
+                                  placeholder="$2,100,000 / I don't know"
+                                  value={mf20MortBal}
+                                  onChange={setMf20MortBal}
+                                />
+                                <TextField
+                                  id="mf20MortRate"
+                                  label="Rate"
+                                  optional
+                                  inputMode="decimal"
+                                  placeholder="5.75% / I don't know"
+                                  value={mf20MortRate}
+                                  onChange={setMf20MortRate}
+                                />
+                              </Pair>
+                              <RadioTiles
+                                id="mf20Assume"
+                                label="Assumable?"
+                                optional
+                                columns={3}
+                                value={mf20Assume}
+                                onChange={setMf20Assume}
+                                options={YES_NO_IDK}
+                              />
+                            </>
+                          )}
+                          <Pair>
+                            <TextField
+                              id="mf20Noi"
+                              label="NOI"
+                              optional
+                              inputMode="decimal"
+                              placeholder="$24,000 / I don't know"
+                              value={mf20Noi}
+                              onChange={setMf20Noi}
+                            />
+                            <TextField
+                              id="mf20Cap"
+                              label="Cap rate"
+                              optional
+                              inputMode="decimal"
+                              placeholder="6.5% / I don't know"
+                              value={mf20Cap}
+                              onChange={setMf20Cap}
+                            />
+                          </Pair>
+                          <TextAreaField
+                            id="mf20T12"
+                            label="T12 / rent roll / CapEx notes"
+                            optional
+                            placeholder="Available on request, or a summary here..."
+                            value={mf20T12}
+                            onChange={setMf20T12}
+                          />
+                          <RadioTiles
+                            id="mf20Sf"
+                            label="Open to seller financing?"
+                            optional
+                            columns={3}
+                            value={mf20Sf}
+                            onChange={setMf20Sf}
+                            options={YES_NO_UNSURE}
+                          />
+                        </Subsection>
+                      </div>
+                    </>
+                  )}
+
+                  {asset === "mhp" && (
+                    <>
+                      <StepHeading
+                        step={2}
+                        title="Mobile home park details"
+                        lede="Lots, utilities and who owns the homes tell me most of what I need. Skip what you don't know."
+                      />
+                      <div className="space-y-6">
+                        <TextField
+                          id="mhpAddr"
+                          label="Property address"
+                          required
+                          autoComplete="street-address"
+                          placeholder="123 Park Rd, City, State ZIP"
+                          value={mhpAddr}
+                          onChange={bind(setMhpAddr, "mhpAddr")}
+                          error={errors.mhpAddr}
+                        />
+
+                        <Pair>
+                          <TextField
+                            id="mhpPrice"
+                            label="Asking price"
+                            required
+                            inputMode="decimal"
+                            placeholder="$1,200,000"
+                            value={mhpPrice}
+                            onChange={bind(setMhpPrice, "mhpPrice")}
+                            error={errors.mhpPrice}
+                          />
+                          <TextField
+                            id="mhpLots"
+                            label="Total lots"
+                            required
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="48"
+                            value={mhpLots}
+                            onChange={bind(setMhpLots, "mhpLots")}
+                            error={errors.mhpLots}
+                          />
+                        </Pair>
+
+                        <TextField
+                          id="mhpOcc"
+                          label="Occupied lots / occupancy %"
+                          required
+                          placeholder="38 lots / 79% / I don't know"
+                          value={mhpOcc}
+                          onChange={bind(setMhpOcc, "mhpOcc")}
+                          error={errors.mhpOcc}
+                        />
+
+                        <SelectField
+                          id="mhpWater"
+                          label="Water and sewer type"
+                          required
+                          value={mhpWater}
+                          onChange={bind(setMhpWater, "mhpWater")}
+                          error={errors.mhpWater}
+                          options={[
+                            { value: "city-city", label: "City water + city sewer" },
+                            { value: "well-septic", label: "Well + septic" },
+                            { value: "city-septic", label: "City water + septic" },
+                            { value: "well-city", label: "Well + city sewer" },
+                            { value: "idk", label: "I don't know" },
+                          ]}
+                        />
+
+                        <RadioTiles
+                          id="mhpPoh"
+                          label="Home ownership type"
+                          required
+                          columns={3}
+                          value={mhpPoh}
+                          onChange={bind(setMhpPoh, "mhpPoh")}
+                          error={errors.mhpPoh}
+                          options={[
+                            { value: "toh", label: "Tenant-owned (TOH)" },
+                            { value: "poh", label: "Park-owned (POH)" },
+                            { value: "mixed", label: "Mixed" },
+                          ]}
+                        />
+
+                        <Subsection show={["poh", "mixed"].includes(mhpPoh)} title="Park-owned home details">
+                          <Pair>
+                            <TextField
+                              id="mhpPohUnits"
+                              label="Number of POH units"
+                              optional
+                              type="number"
+                              inputMode="numeric"
+                              placeholder="12"
+                              value={mhpPohUnits}
+                              onChange={setMhpPohUnits}
+                            />
+                            <SelectField
+                              id="mhpPohCond"
+                              label="POH condition"
+                              optional
+                              placeholder="Select or skip"
+                              value={mhpPohCond}
+                              onChange={setMhpPohCond}
+                              options={[
+                                { value: "good", label: "Good" },
+                                { value: "fair", label: "Fair" },
+                                { value: "poor", label: "Poor" },
+                                { value: "idk", label: "I don't know" },
+                              ]}
+                            />
+                          </Pair>
+                        </Subsection>
+
+                        <Divider />
+
+                        <Pair>
+                          <TextField
+                            id="mhpInc"
+                            label="Gross monthly income"
+                            required={isWholesaler}
+                            optional={!isWholesaler}
+                            inputMode="decimal"
+                            placeholder="$19,200 / I don't know"
+                            value={mhpInc}
+                            onChange={bind(setMhpInc, "mhpInc")}
+                            error={errors.mhpInc}
+                          />
+                          <TextField
+                            id="mhpLotRent"
+                            label="Lot rent (per lot, per month)"
+                            optional
+                            inputMode="decimal"
+                            placeholder="$400 / I don't know"
+                            value={mhpLotRent}
+                            onChange={setMhpLotRent}
+                          />
+                        </Pair>
+
+                        <RadioTiles
+                          id="mhpInfra"
+                          label="Infrastructure age and condition"
+                          optional
+                          value={mhpInfra}
+                          onChange={setMhpInfra}
+                          options={[
+                            { value: "good", label: "Good" },
+                            { value: "fair", label: "Fair" },
+                            { value: "poor", label: "Poor / aging" },
+                            { value: "idk", label: "I don't know" },
+                          ]}
+                        />
+
+                        <RadioTiles
+                          id="mhpMort"
+                          label="Existing financing?"
+                          optional
+                          columns={3}
+                          value={mhpMort}
+                          onChange={setMhpMort}
+                          options={YES_NO_IDK}
+                        />
+
+                        <Subsection show={mhpMort === "yes"} title="Financing details">
+                          <Pair>
+                            <TextField
+                              id="mhpMortBal"
+                              label="Balance"
+                              optional
+                              inputMode="decimal"
+                              placeholder="$650,000 / I don't know"
+                              value={mhpMortBal}
+                              onChange={setMhpMortBal}
+                            />
+                            <TextField
+                              id="mhpMortRate"
+                              label="Rate"
+                              optional
+                              inputMode="decimal"
+                              placeholder="5% / I don't know"
+                              value={mhpMortRate}
+                              onChange={setMhpMortRate}
+                            />
+                          </Pair>
+                          <RadioTiles
+                            id="mhpAssume"
+                            label="Assumable?"
+                            optional
+                            columns={3}
+                            value={mhpAssume}
+                            onChange={setMhpAssume}
+                            options={YES_NO_IDK}
+                          />
+                        </Subsection>
+
+                        <RadioTiles
+                          id="mhpViol"
+                          label="Any city or county violations?"
+                          optional
+                          columns={2}
+                          value={mhpViol}
+                          onChange={setMhpViol}
+                          options={YES_NO}
+                        />
+                        <Subsection show={mhpViol === "yes"} title="Describe the violations">
+                          <TextAreaField
+                            id="mhpViolDesc"
+                            label="Violations"
+                            optional
+                            placeholder="Describe any known violations or compliance issues..."
+                            value={mhpViolDesc}
+                            onChange={setMhpViolDesc}
+                          />
+                        </Subsection>
+
+                        <RadioTiles
+                          id="mhpEnv"
+                          label="Known environmental issues?"
+                          optional
+                          columns={2}
+                          value={mhpEnv}
+                          onChange={setMhpEnv}
+                          options={YES_NO}
+                        />
+                        <Subsection show={mhpEnv === "yes"} title="Describe the environmental issues">
+                          <TextAreaField
+                            id="mhpEnvDesc"
+                            label="Environmental issues"
+                            optional
+                            placeholder="Describe any known environmental concerns..."
+                            value={mhpEnvDesc}
+                            onChange={setMhpEnvDesc}
+                          />
+                        </Subsection>
+
+                        <RadioTiles
+                          id="mhpSf"
+                          label="Open to seller financing?"
+                          optional
+                          columns={3}
+                          value={mhpSf}
+                          onChange={setMhpSf}
+                          options={YES_NO_UNSURE}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {asset === "rv" && (
+                    <>
+                      <StepHeading
+                        step={2}
+                        title="RV park / campground details"
+                        lede="Sites, season and revenue. Skip what you don't know."
+                      />
+                      <div className="space-y-6">
+                        <TextField
+                          id="rvAddr"
+                          label="Property address"
+                          required
+                          autoComplete="street-address"
+                          placeholder="123 Camp Rd, City, State ZIP"
+                          value={rvAddr}
+                          onChange={bind(setRvAddr, "rvAddr")}
+                          error={errors.rvAddr}
+                        />
+
+                        <Pair>
+                          <TextField
+                            id="rvPrice"
+                            label="Asking price"
+                            required
+                            inputMode="decimal"
+                            placeholder="$2,400,000"
+                            value={rvPrice}
+                            onChange={bind(setRvPrice, "rvPrice")}
+                            error={errors.rvPrice}
+                          />
+                          <TextField
+                            id="rvSites"
+                            label="Total sites"
+                            required
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="85"
+                            value={rvSites}
+                            onChange={bind(setRvSites, "rvSites")}
+                            error={errors.rvSites}
+                          />
+                        </Pair>
+
+                        <RadioTiles
+                          id="rvSeason"
+                          label="Seasonal or year-round?"
+                          required
+                          columns={2}
+                          value={rvSeason}
+                          onChange={bind(setRvSeason, "rvSeason")}
+                          error={errors.rvSeason}
+                          options={[
+                            { value: "seasonal", label: "Seasonal" },
+                            { value: "yearround", label: "Year-round" },
+                          ]}
+                        />
+
+                        <Subsection show={rvSeason === "seasonal"} title="Seasonal details">
+                          <Pair>
+                            <SelectField
+                              id="rvSeasonOpen"
+                              label="Season opens"
+                              required
+                              placeholder="Select month"
+                              value={rvSeasonOpen}
+                              onChange={bind(setRvSeasonOpen, "rvSeasonOpen")}
+                              error={errors.rvSeasonOpen}
+                              options={MONTH_OPTIONS}
+                            />
+                            <SelectField
+                              id="rvSeasonClose"
+                              label="Season closes"
+                              required
+                              placeholder="Select month"
+                              value={rvSeasonClose}
+                              onChange={bind(setRvSeasonClose, "rvSeasonClose")}
+                              error={errors.rvSeasonClose}
+                              options={MONTH_OPTIONS}
+                            />
+                          </Pair>
+                          <TextField
+                            id="rvPeakOcc"
+                            label="Peak season average occupancy"
+                            optional
+                            placeholder="90% / I don't know"
+                            value={rvPeakOcc}
+                            onChange={setRvPeakOcc}
+                          />
+                        </Subsection>
+
+                        <Subsection show={rvSeason === "yearround"} title="Year-round details">
+                          <TextField
+                            id="rvYrOcc"
+                            label="Current occupancy %"
+                            required
+                            placeholder="75%"
+                            value={rvYrOcc}
+                            onChange={bind(setRvYrOcc, "rvYrOcc")}
+                            error={errors.rvYrOcc}
+                          />
+                          <RadioTiles
+                            id="rvLt"
+                            label="Long-term or permanent residents?"
+                            optional
+                            columns={2}
+                            value={rvLt}
+                            onChange={setRvLt}
+                            options={YES_NO}
+                          />
+                          {rvLt === "yes" && (
+                            <TextField
+                              id="rvLtCount"
+                              label="Approximately how many?"
+                              optional
+                              type="number"
+                              inputMode="numeric"
+                              placeholder="12"
+                              value={rvLtCount}
+                              onChange={setRvLtCount}
+                            />
+                          )}
+                        </Subsection>
+
+                        <Divider />
+
+                        <CheckTiles
+                          id="rvSiteTypes"
+                          label="Site type breakdown, check all that apply"
+                          optional
+                          options={[
+                            "Full hookup (water, electric, sewer)",
+                            "Water & electric only",
+                            "Electric only",
+                            "Dry camping / primitive",
+                            "Cabin / glamping units",
+                          ]}
+                          selected={rvSiteTypes}
+                          onChange={setRvSiteTypes}
+                        />
+
+                        <Pair>
+                          <TextField
+                            id="rvRev"
+                            label="Gross annual revenue"
+                            required={isWholesaler}
+                            optional={!isWholesaler}
+                            inputMode="decimal"
+                            placeholder="$320,000 / I don't know"
+                            value={rvRev}
+                            onChange={bind(setRvRev, "rvRev")}
+                            error={errors.rvRev}
+                          />
+                          <SelectField
+                            id="rvMgmt"
+                            label="Management type"
+                            optional
+                            placeholder="Select or skip"
+                            value={rvMgmt}
+                            onChange={setRvMgmt}
+                            options={[
+                              { value: "self", label: "Self-managed" },
+                              { value: "third", label: "Third-party management" },
+                            ]}
+                          />
+                        </Pair>
+
+                        <TextField
+                          id="rvBooking"
+                          label="Booking platform"
+                          optional
+                          placeholder="Campspot, Hipcamp, direct, none, I don't know..."
+                          value={rvBooking}
+                          onChange={setRvBooking}
+                        />
+
+                        <Pills
+                          label="Amenities, check all that apply"
+                          optional
+                          options={[
+                            "Pool",
+                            "Bathhouse",
+                            "Laundry",
+                            "Playground",
+                            "Camp Store",
+                            "Boat Launch",
+                            "WiFi",
+                            "Fishing",
+                            "Mini Golf",
+                          ]}
+                          selected={rvAmenities}
+                          onChange={setRvAmenities}
+                        />
+
+                        <RadioTiles
+                          id="rvMort"
+                          label="Existing financing?"
+                          required={isWholesaler}
+                          optional={!isWholesaler}
+                          columns={3}
+                          value={rvMort}
+                          onChange={bind(setRvMort, "rvMort")}
+                          error={errors.rvMort}
+                          options={YES_NO_IDK}
+                        />
+
+                        <Subsection show={rvMort === "yes"} title="Financing details">
+                          <Pair>
+                            <TextField
+                              id="rvMortBal"
+                              label="Balance"
+                              optional
+                              inputMode="decimal"
+                              placeholder="$900,000 / I don't know"
+                              value={rvMortBal}
+                              onChange={setRvMortBal}
+                            />
+                            <TextField
+                              id="rvMortRate"
+                              label="Rate"
+                              optional
+                              inputMode="decimal"
+                              placeholder="5.25% / I don't know"
+                              value={rvMortRate}
+                              onChange={setRvMortRate}
+                            />
+                          </Pair>
+                          <RadioTiles
+                            id="rvAssume"
+                            label="Assumable?"
+                            optional
+                            columns={3}
+                            value={rvAssume}
+                            onChange={setRvAssume}
+                            options={YES_NO_IDK}
+                          />
+                        </Subsection>
+
+                        <RadioTiles
+                          id="rvSf"
+                          label="Open to seller financing?"
+                          optional
+                          columns={3}
+                          value={rvSf}
+                          onChange={setRvSf}
+                          options={YES_NO_UNSURE}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <StepNav onBack={back} />
+                </>
+              )}
+
+              {/* Step 4: final */}
+              {step === 3 && (
+                <>
+                  <StepHeading step={3} title="Almost done." lede="Anything else, then confirm and send it over." />
+                  <div className="space-y-6">
+                    <TextAreaField
+                      id="notes"
+                      label="Anything else I should know?"
+                      optional
+                      placeholder="Timeline, additional context, or anything else..."
+                      value={notes}
+                      onChange={setNotes}
+                    />
+
+                    <SelectField
+                      id="hearAbout"
+                      label="How did you hear about me?"
+                      optional
+                      value={hearAbout}
+                      onChange={setHearAbout}
+                      options={[
+                        { value: "instagram", label: "Instagram" },
+                        { value: "facebook", label: "Facebook" },
+                        { value: "referral", label: "Referral" },
+                        { value: "google", label: "Google search" },
+                        { value: "meetup", label: "Meetup / event" },
+                        { value: "subto", label: "SubTo / Pace Morby community" },
+                        { value: "other", label: "Other" },
+                      ]}
+                    />
+
+                    <Subsection show={isWholesaler} title="Referral and assignment">
+                      <TextField
+                        id="referralFee"
+                        label="Referral fee expectation"
+                        optional
+                        placeholder="$2,500 flat / 50% of spread / negotiable..."
+                        value={referralFee}
+                        onChange={setReferralFee}
+                      />
+                      <RadioTiles
+                        id="dealStatus"
+                        label="Your status on this deal"
+                        optional
+                        columns={3}
+                        value={dealStatus}
+                        onChange={setDealStatus}
+                        options={[
+                          { value: "contract", label: "I have it under contract" },
+                          { value: "referring", label: "I'm referring the lead" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </Subsection>
+
+                    <Divider />
+
+                    <div className="space-y-3">
+                      <ConsentBox id="consent" checked={consent} onChange={bind(setConsent, "consent")} error={errors.consent}>
+                        I confirm this information is accurate to the best of my knowledge.
+                        <Mark required />
+                      </ConsentBox>
+                      <ConsentBox id="smsConsent" checked={smsConsent} onChange={setSmsConsent}>
+                        Text me about this. I agree to receive text messages from Josh Moore about my
+                        submission. Message frequency varies. Message and data rates may apply. Reply
+                        STOP to opt out, HELP for help.
+                      </ConsentBox>
+                    </div>
+
+                    {submitError && (
+                      <p
+                        role="alert"
+                        className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive"
+                      >
+                        {submitError}
+                      </p>
+                    )}
+                  </div>
+
+                  <StepNav onBack={back} submit nextLabel={submitting ? "Sending..." : "Submit deal"} busy={submitting} />
+                  <p className="mt-4 text-center text-sm text-ink-muted">
+                    By submitting you agree to the{" "}
+                    <Link href="/privacy" className="font-semibold text-brand-600 underline-offset-4 hover:underline">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </p>
+                </>
+              )}
+            </form>
+          </Reveal>
         </div>
-      </main>
+      </Section>
 
-      <Footer />
-    </div>
+      <CtaBand
+        title="Rather talk it through?"
+        lede="If the form doesn't fit your situation, book a call and walk me through the property instead."
+        primaryHref="/contact"
+        primaryLabel="Book a call"
+        secondaryHref="/buy-box"
+        secondaryLabel="View my buy box"
+      />
+    </SiteLayout>
   );
 }

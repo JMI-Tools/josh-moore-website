@@ -1,6 +1,19 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { Link } from "wouter";
+import { Check, ChevronDown, MapPin, Play, Smartphone, Volume2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PageHero, Reveal, Section, SiteLayout } from "@/components/site";
+import { cn } from "@/lib/utils";
 import { useRouteSeo } from "@/hooks/useSeo";
 
 /* ------------------------------------------------------------------ data */
@@ -21,12 +34,17 @@ const COUNTIES = [
   "Eaton", "Ingham", "Jackson",
 ];
 
+const FOCUS_COUNTIES = ["Muskegon", "Kent", "Ottawa", "Kalamazoo"];
+
 const LICENSE_CHOICES = [
   { value: "licensed_builder", title: "Licensed contractor", desc: "Residential builder or maintenance and alteration license" },
   { value: "licensed_trade", title: "Licensed in a specific trade", desc: "Electrical, plumbing, or mechanical" },
   { value: "unlicensed", title: "Skilled tradesman or handyman, not licensed", desc: "Plenty of our work falls here. It is not a mark against you." },
   { value: "unsure", title: "Not sure", desc: "We will sort it out when we talk." },
 ];
+
+const SMS_CONSENT_TEXT =
+  "I agree to receive text messages from Josh Moore about jobs and scheduling. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help.";
 
 const VIDEO_ID = "DiL1_o8aQIg";
 const DRAFT_KEY = "jm-contractor-intake-draft";
@@ -180,7 +198,7 @@ export default function Contractors() {
   }, []);
 
   /* submit */
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const missing = need.filter((k) => !filled(k));
     setBad(missing);
@@ -203,6 +221,7 @@ export default function Contractors() {
     const payload = {
       name: vals.name, company: vals.company || null,
       phone: vals.phone, smsCapable: picks.sms === "yes",
+      smsConsent: picks.smsConsent === "yes" ? "yes" : "no",
       email: vals.email, contactPref: picks.contactPref,
       trades: tradeList, primaryTrade: vals.primaryTrade,
       years: vals.years, crew: vals.crew, capacity: picks.capacity || null,
@@ -268,250 +287,357 @@ export default function Contractors() {
 
   if (done) {
     return (
-      <div className="jm-contractors">
-        <Style />
-        <Header />
-        <main className="jmc-thanks">
-          <div className="jmc-thanks__in">
-            <div className="jmc-check" aria-hidden="true">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      <SiteLayout>
+        <Section tone="paper" className="dots-paper min-h-[60vh]" containerClassName="max-w-xl">
+          <Reveal>
+            <div className="surface p-8 text-center sm:p-12">
+              <span className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-navy text-white" aria-hidden="true">
+                <Check className="size-8" strokeWidth={2.5} />
+              </span>
+              <h1 className="display-md mt-7 text-navy">Thanks {done.name}. You're on the list.</h1>
+              <p className="mt-4 text-[17px] leading-relaxed text-ink-soft">
+                We will reach out when something in your trade comes up in your area. If you gave us a
+                number that takes texts, that is probably how you will hear from us first.
+              </p>
+              <div className="mt-8">
+                <Button asChild size="lg">
+                  <Link href="/">Back to the site</Link>
+                </Button>
+              </div>
             </div>
-            <h1>Thanks {done.name}. You're on the list.</h1>
-            <p>We will reach out when something in your trade comes up in your area. If you gave us a number that takes texts, that is probably how you will hear from us first.</p>
-            <a className="jmc-btn" href="/">Back to the site</a>
-          </div>
-        </main>
-        <Footer />
-      </div>
+          </Reveal>
+        </Section>
+      </SiteLayout>
     );
   }
 
   /* ---------------------------------------------------------------- page */
 
   return (
-    <div className="jm-contractors">
-      <Style />
-
+    <SiteLayout>
       {videoOpen ? (
-        <div className="jmc-vid" role="dialog" aria-modal="true" aria-label="Intro video">
-          <div className="jmc-vid__scrim" onClick={closeVideo} />
-          <div className="jmc-vid__box">
-            <div className="jmc-vid__frame">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Intro video">
+          <div className="absolute inset-0 bg-navy/90 backdrop-blur-sm" onClick={closeVideo} />
+          <div className="relative flex flex-col items-center gap-4">
+            <div
+              className="relative aspect-[9/16] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black shadow-lift"
+              style={{ width: "min(calc(70vh * 9 / 16), 92vw)" }}
+            >
               <iframe
                 title="Intro from Josh Moore"
                 src={`https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1&mute=${muted ? 1 : 0}&playsinline=1&rel=0&modestbranding=1&controls=1`}
                 allow="autoplay; encrypted-media; picture-in-picture; web-share; fullscreen"
                 allowFullScreen
                 referrerPolicy="strict-origin-when-cross-origin"
+                className="absolute inset-0 block h-full w-full border-0"
               />
               {prompt && muted ? (
-                <button type="button" className="jmc-vid__sound" onClick={goLoud} aria-label="Tap for sound">
-                  <span className="jmc-vid__ring">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5a9 9 0 0 1 0 14" />
-                    </svg>
+                <button
+                  type="button"
+                  onClick={goLoud}
+                  aria-label="Tap for sound"
+                  className="absolute inset-0 z-[2] flex flex-col items-center justify-center gap-3 bg-navy/40 text-white"
+                >
+                  <span className="flex size-16 items-center justify-center rounded-full bg-brand text-white shadow-lift">
+                    <Volume2 className="size-7" />
                   </span>
-                  <span className="jmc-vid__soundt">Tap for sound</span>
+                  <span className="text-[15px] font-semibold">Tap for sound</span>
                 </button>
               ) : null}
               {!prompt && muted ? (
-                <button type="button" className="jmc-vid__unmute" onClick={goLoud} aria-label="Turn sound on">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" />
-                  </svg>
+                <button
+                  type="button"
+                  onClick={goLoud}
+                  aria-label="Turn sound on"
+                  className="absolute right-3 top-3 z-[2] flex size-11 items-center justify-center rounded-full border border-white/20 bg-navy/70 text-white"
+                >
+                  <Volume2 className="size-4" />
                 </button>
               ) : null}
             </div>
-            <button type="button" className="jmc-vid__skip" onClick={closeVideo}>Skip to the form</button>
-            <p className="jmc-vid__note">Quick look at what I'm doing and who I'm looking for.</p>
+            <Button type="button" variant="light" size="lg" onClick={closeVideo}>
+              Skip to the form
+            </Button>
+            <p className="max-w-[34ch] text-center text-[13px] text-white/60">
+              Quick look at what I'm doing and who I'm looking for.
+            </p>
           </div>
         </div>
       ) : null}
 
-      <Header />
-
-      <div className="jmc-prog">
-        <div className="jmc-prog__bar"><div className="jmc-prog__fill" style={{ width: `${pct}%` }} /></div>
-        <div className="jmc-prog__meta">
-          <span>{pct === 100 ? "All set, hit submit" : nextUp ? `Next up: ${LABELS[nextUp] || nextUp}` : "Let's get you set up"}</span>
-          <span><b>{pct}</b>% done</span>
+      {/* Progress. Sits under the sticky header and follows the visitor down the form. */}
+      <div className="sticky top-[72px] z-30 border-b border-line bg-white/92 backdrop-blur-md">
+        <div className="h-1 bg-line" role="progressbar" aria-label="Form progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+          <div className="h-full bg-brand transition-[width] duration-300 ease-out" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="container flex max-w-3xl items-center justify-between gap-4 py-2.5 text-[13px] text-ink-muted">
+          <span className="truncate">
+            {pct === 100 ? "All set, hit submit" : nextUp ? `Next up: ${LABELS[nextUp] || nextUp}` : "Let's get you set up"}
+          </span>
+          <span className="shrink-0">
+            <b className="font-semibold text-navy">{pct}</b>% done
+          </span>
         </div>
       </div>
 
-      <main>
-        <section className="jmc-hero">
-          <div className="jmc-hero__in">
-            <h1>Let's connect.</h1>
-            <p>I'm expanding the side of my business that does fix and flips so we can take on more jobs, and I would love to connect with you and see where we can fit in with each other.</p>
-            <p>As of right now we are concentrating on <b>Muskegon County, Kent County, Ottawa County and Kalamazoo County</b>.</p>
-            <p>Take a second to fill out your information below so we can connect and see how we can do some projects together.</p>
-            <button type="button" className="jmc-replay" onClick={() => setVideoOpen(true)}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+      <PageHero
+        tone="paper"
+        eyebrow="Contractors and trades"
+        title="Let's connect."
+        lede={
+          <>
+            I'm expanding the side of my business that does fix and flips so we can take on more
+            jobs, and I would love to connect with you and see where we can fit in with each other.
+            <span className="mt-4 block">
+              Take a second to fill out your information below so we can connect and see how we can
+              do some projects together.
+            </span>
+          </>
+        }
+        actions={
+          <>
+            <Button type="button" size="lg" onClick={() => setVideoOpen(true)}>
+              <Play />
               Watch the quick intro
-            </button>
-          </div>
-        </section>
-
-        {inApp ? (
-          <div className="jmc-wrap">
-            <div className="jmc-inapp">
-              <b>Typing giving you trouble?</b>
-              <span>
-                You opened this inside Facebook, and its built in browser fights with the
-                keyboard. Tap the three dots in the corner and choose <b>Open in browser</b>,
-                or paste <b>itsjoshmoore.com/contractors</b> into Safari or Chrome. Anything
-                you have already filled in is saved on this phone.
-              </span>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <a href="#intake">Go to the form</a>
+            </Button>
+          </>
+        }
+        aside={
+          <div className="relative">
+            <div className="overflow-hidden rounded-[2rem] shadow-lift">
+              <img
+                src="/media-kit/assets/josh-moore-yellow-shirt.jpg"
+                alt="Josh Moore"
+                width={1279}
+                height={1280}
+                loading="lazy"
+                className="aspect-[4/3] w-full object-cover object-[32%_30%] lg:aspect-[4/5]"
+              />
+            </div>
+            <div className="surface relative mx-4 -mt-10 p-5 sm:absolute sm:-bottom-6 sm:-left-4 sm:mx-0 sm:mt-0 sm:w-[300px] lg:-left-8">
+              <p className="eyebrow eyebrow-line">Concentrating on right now</p>
+              <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+                {FOCUS_COUNTIES.map((c) => (
+                  <li key={c} className="flex items-center gap-2 font-display text-[17px] font-semibold text-navy">
+                    <MapPin className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
+                    {c} County
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
+        }
+      />
+
+      <Section tone="paper" id="intake" containerClassName="max-w-3xl" className="scroll-mt-32 pt-10 pb-40 md:pt-14 md:pb-44">
+        {inApp ? (
+          <Reveal className="mb-5">
+            <div className="surface flex gap-4 p-5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-navy text-white" aria-hidden="true">
+                <Smartphone className="size-5" />
+              </span>
+              <div>
+                <p className="font-semibold text-navy">Typing giving you trouble?</p>
+                <p className="mt-1 text-[15px] leading-relaxed text-ink-soft">
+                  You opened this inside Facebook, and its built in browser fights with the
+                  keyboard. Tap the three dots in the corner and choose <b className="font-semibold text-navy">Open in browser</b>,
+                  or paste <b className="font-semibold text-navy">itsjoshmoore.com/contractors</b> into Safari or Chrome. Anything
+                  you have already filled in is saved on this phone.
+                </p>
+              </div>
+            </div>
+          </Reveal>
         ) : null}
 
-        <form className="jmc-wrap" onSubmit={onSubmit} noValidate>
-          <Section n="01" title="How to reach you" sub="The basics. Everything else builds off this.">
-            <Text {...F} k="name" label="Your name" req />
-            <Text {...F} k="company" label="Business name" hint="Leave blank if you work under your own name." />
-            <Text {...F} k="phone" label="Mobile number" req type="tel" ph="(269) 555-0100" hint="This is where job offers and scheduling texts go." />
-            <Pills {...F} k="sms" label="Can that number receive text messages?" req opts={[["yes", "Yes"], ["no", "No, call me"]]} />
-            <Text {...F} k="email" label="Email" req type="email" hint="Where we send your paperwork and payment records." />
-            <Pills {...F} k="contactPref" label="Best way to reach you" req opts={[["text", "Text"], ["call", "Call"], ["email", "Email"]]} />
-          </Section>
+        <form onSubmit={onSubmit} noValidate className="grid gap-5">
+          <Reveal>
+            <FormCard n="01" title="How to reach you" sub="The basics. Everything else builds off this.">
+              <Text {...F} k="name" label="Your name" req />
+              <Text {...F} k="company" label="Business name" hint="Leave blank if you work under your own name." />
+              <Text {...F} k="phone" label="Mobile number" req type="tel" ph="(269) 555-0100" hint="This is where job offers and scheduling texts go." />
+              <Pills {...F} k="sms" label="Can that number receive text messages?" req opts={[["yes", "Yes"], ["no", "No, call me"]]} />
+              <Consent {...F} k="smsConsent" text={SMS_CONSENT_TEXT} />
+              <Text {...F} k="email" label="Email" req type="email" hint="Where we send your paperwork and payment records." />
+              <Pills {...F} k="contactPref" label="Best way to reach you" req opts={[["text", "Text"], ["call", "Call"], ["email", "Email"]]} />
+            </FormCard>
+          </Reveal>
 
-          <Section n="02" title="What you do" sub="Check everything you take on. Be generous, we would rather call you and hear no.">
-            <div className="jmc-f" data-field="trades">
-              <TradeChips selected={sets.trades || []} toggle={toggle} />
-              <div className="jmc-count"><b>{tradeList.length}</b> selected</div>
-              <Err k="trades" msg="Pick at least one." bad={bad} />
-            </div>
-            <Text {...F} k="tradesOther" label="Anything not on that list?" ph="Septic, well pumps, masonry, pools" />
-            <Select {...F} k="primaryTrade" label="Your main trade" req opts={tradeList}
-              hint="The one you would want to be called for first." />
-            <div className="jmc-row">
-              <Select {...F} k="years" label="Years doing this" req opts={["Under 2", "2 to 5", "5 to 10", "10 to 20", "20 or more"]} />
-              <Select {...F} k="crew" label="Is it just you?" req opts={["Just me", "Me plus 1 or 2", "Crew of 3 to 5", "Crew of 6 or more"]} />
-            </div>
-            <Pills {...F} k="capacity" label="How many jobs can you comfortably run at once?" opts={[["1", "One"], ["2", "Two"], ["3+", "Three or more"]]} />
-          </Section>
-
-          <Section n="03" title="How you work" sub="There is no wrong answer here. Plenty of our work does not need a license, and we hire accordingly.">
-            <div className="jmc-f" data-field="licenseType">
-              <div className="jmc-choices">
-                {LICENSE_CHOICES.map((c) => (
-                  <button type="button" key={c.value}
-                    className={"jmc-choice" + (picks.licenseType === c.value ? " on" : "")}
-                    onClick={() => pick("licenseType", c.value)}>
-                    <span className="jmc-choice__t">{c.title}</span>
-                    <span className="jmc-choice__d">{c.desc}</span>
-                  </button>
-                ))}
+          <Reveal delay={0.05}>
+            <FormCard n="02" title="What you do" sub="Check everything you take on. Be generous, we would rather call you and hear no.">
+              <div data-field="trades">
+                <TradeChips selected={sets.trades || []} toggle={toggle} />
+                <p className="field-help"><b className="font-semibold text-navy">{tradeList.length}</b> selected</p>
+                <Err k="trades" msg="Pick at least one." bad={bad} />
               </div>
-              <Err k="licenseType" msg="Pick one." bad={bad} />
-              {isLicensed ? (
-                <div className="jmc-reveal">
-                  <div className="jmc-row">
-                    <Text {...F} k="licenseKind" label="License type" ph="Residential builder, master electrician" />
-                    <Text {...F} k="licenseNumber" label="License number" />
-                  </div>
-                  <div className="jmc-row">
-                    <Text {...F} k="licenseState" label="State" />
-                    <Text {...F} k="licenseExpiry" label="Expires" ph="MM/YYYY" />
-                  </div>
+              <Text {...F} k="tradesOther" label="Anything not on that list?" ph="Septic, well pumps, masonry, pools" />
+              <Select {...F} k="primaryTrade" label="Your main trade" req opts={tradeList}
+                hint="The one you would want to be called for first." />
+              <Row>
+                <Select {...F} k="years" label="Years doing this" req opts={["Under 2", "2 to 5", "5 to 10", "10 to 20", "20 or more"]} />
+                <Select {...F} k="crew" label="Is it just you?" req opts={["Just me", "Me plus 1 or 2", "Crew of 3 to 5", "Crew of 6 or more"]} />
+              </Row>
+              <Pills {...F} k="capacity" label="How many jobs can you comfortably run at once?" opts={[["1", "One"], ["2", "Two"], ["3+", "Three or more"]]} />
+            </FormCard>
+          </Reveal>
+
+          <Reveal delay={0.05}>
+            <FormCard n="03" title="How you work" sub="There is no wrong answer here. Plenty of our work does not need a license, and we hire accordingly.">
+              <div data-field="licenseType">
+                <span className="field-label" id="jmc-licenseType-label">How you work<Req req /></span>
+                <div className="grid gap-3" role="radiogroup" aria-labelledby="jmc-licenseType-label">
+                  {LICENSE_CHOICES.map((c) => (
+                    <label key={c.value} className="choice cursor-pointer">
+                      <input
+                        type="radio"
+                        name="licenseType"
+                        value={c.value}
+                        checked={picks.licenseType === c.value}
+                        onChange={() => pick("licenseType", c.value)}
+                        className="peer sr-only"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-input bg-white peer-checked:border-navy peer-checked:bg-navy peer-focus-visible:ring-[3px] peer-focus-visible:ring-brand/40"
+                      >
+                        <span className="size-2 rounded-full bg-white" />
+                      </span>
+                      <span className="flex flex-col gap-0.5">
+                        <span className="text-[15px] font-semibold leading-snug text-navy">{c.title}</span>
+                        <span className="text-sm leading-relaxed text-ink-soft">{c.desc}</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
+                <Err k="licenseType" msg="Pick one." bad={bad} />
+                {isLicensed ? (
+                  <Inset>
+                    <Row>
+                      <Text {...F} k="licenseKind" label="License type" ph="Residential builder, master electrician" />
+                      <Text {...F} k="licenseNumber" label="License number" />
+                    </Row>
+                    <Row>
+                      <Text {...F} k="licenseState" label="State" />
+                      <Text {...F} k="licenseExpiry" label="Expires" ph="MM/YYYY" />
+                    </Row>
+                  </Inset>
+                ) : null}
+              </div>
+
+              <Pills {...F} k="insured" label="Do you carry general liability insurance?" req opts={[["yes", "Yes"], ["no", "No"]]} />
+              {isInsured ? (
+                <Inset>
+                  <Row cols={3}>
+                    <Text {...F} k="insCarrier" label="Carrier" />
+                    <Text {...F} k="insCoverage" label="Coverage" ph="$1,000,000" />
+                    <Text {...F} k="insExpiry" label="Expires" ph="MM/YYYY" />
+                  </Row>
+                  <Pills {...F} k="coi" label="Can you send a certificate of insurance if we ask?" opts={[["yes", "Yes"], ["no", "Not right now"]]} />
+                </Inset>
               ) : null}
-            </div>
 
-            <Pills {...F} k="insured" label="Do you carry general liability insurance?" req opts={[["yes", "Yes"], ["no", "No"]]} />
-            {isInsured ? (
-              <div className="jmc-reveal">
-                <div className="jmc-row3">
-                  <Text {...F} k="insCarrier" label="Carrier" />
-                  <Text {...F} k="insCoverage" label="Coverage" ph="$1,000,000" />
-                  <Text {...F} k="insExpiry" label="Expires" ph="MM/YYYY" />
-                </div>
-                <Pills {...F} k="coi" label="Can you send a certificate of insurance if we ask?" opts={[["yes", "Yes"], ["no", "Not right now"]]} />
+              <Pills {...F} k="comp" label="Workers comp" req opts={[["yes", "Yes, I carry it"], ["exempt", "Exempt, sole proprietor"], ["no", "No"]]} />
+            </FormCard>
+          </Reveal>
+
+          <Reveal delay={0.05}>
+            <FormCard n="04" title="Where you work" sub="Check every county you will drive to.">
+              <div data-field="areas">
+                <CountyChips selected={sets.areas || []} toggle={toggle} />
+                <p className="field-help"><b className="font-semibold text-navy">{(sets.areas || []).length}</b> selected</p>
+                <Err k="areas" msg="Pick at least one county." bad={bad} />
               </div>
-            ) : null}
+              <Row>
+                <Text {...F} k="areasOther" label="Any county not listed?" ph="County name" />
+                <Select {...F} k="radius" label="How far will you travel?" opts={["Up to 20 miles", "Up to 40 miles", "Up to 60 miles", "Anywhere, for the right job"]} />
+              </Row>
+              <Text {...F} k="areasAvoid" label="Anywhere you would rather not go?" ph="County, town, or area" />
+            </FormCard>
+          </Reveal>
 
-            <Pills {...F} k="comp" label="Workers comp" req opts={[["yes", "Yes, I carry it"], ["exempt", "Exempt, sole proprietor"], ["no", "No"]]} />
-          </Section>
+          <Reveal delay={0.05}>
+            <FormCard n="05" title="Pricing and payment" sub="Rough is fine. We are not holding you to a number here.">
+              <Pills {...F} k="pricing" label="How do you usually price work?" req opts={[["bid", "By the bid"], ["hourly", "Hourly"], ["unit", "By the unit"], ["mix", "Mix of those"]]} />
+              <Text {...F} k="rate" label="Typical rate or range" ph="$65/hr, or $385 a square" />
+              <Pills {...F} k="ten99" label="Are you set up to be paid as a 1099 contractor?" req
+                hint="We will collect a W-9 from you before your first payment, not here."
+                opts={[["yes", "Yes"], ["no", "No"], ["unsure", "Not sure"]]} />
+            </FormCard>
+          </Reveal>
 
-          <Section n="04" title="Where you work" sub="Check every county you will drive to.">
-            <div className="jmc-f" data-field="areas">
-              <CountyChips selected={sets.areas || []} toggle={toggle} />
-              <div className="jmc-count"><b>{(sets.areas || []).length}</b> selected</div>
-              <Err k="areas" msg="Pick at least one county." bad={bad} />
-            </div>
-            <div className="jmc-row">
-              <Text {...F} k="areasOther" label="Any county not listed?" ph="County name" />
-              <Select {...F} k="radius" label="How far will you travel?" opts={["Up to 20 miles", "Up to 40 miles", "Up to 60 miles", "Anywhere, for the right job"]} />
-            </div>
-            <Text {...F} k="areasAvoid" label="Anywhere you would rather not go?" ph="County, town, or area" />
-          </Section>
+          <Reveal delay={0.05}>
+            <FormCard n="06" title="Availability" sub="Helps us stop calling you about work you cannot take." optional>
+              <Select {...F} k="leadTime" label="Notice you need to schedule" opts={["A day or two", "About a week", "Two weeks", "A month"]}
+                hint="How much heads up you want before a start date." />
+              <Pills {...F} k="weekends" label="Do you work weekends?" opts={[["yes", "Yes"], ["sometimes", "Sometimes"], ["no", "No"]]} />
+            </FormCard>
+          </Reveal>
 
-          <Section n="05" title="Pricing and payment" sub="Rough is fine. We are not holding you to a number here.">
-            <Pills {...F} k="pricing" label="How do you usually price work?" req opts={[["bid", "By the bid"], ["hourly", "Hourly"], ["unit", "By the unit"], ["mix", "Mix of those"]]} />
-            <Text {...F} k="rate" label="Typical rate or range" ph="$65/hr, or $385 a square" />
-            <Pills {...F} k="ten99" label="Are you set up to be paid as a 1099 contractor?" req
-              hint="We will collect a W-9 from you before your first payment, not here."
-              opts={[["yes", "Yes"], ["no", "No"], ["unsure", "Not sure"]]} />
-          </Section>
+          <Reveal delay={0.05}>
+            <FormCard n="07" title="Show us your work" sub="Anything that shows what you do. Skip it if you would rather just talk." optional>
+              <Row>
+                <Text {...F} k="website" label="Website" ph="https://" />
+                <Text {...F} k="facebook" label="Facebook" />
+              </Row>
+              <Row>
+                <Text {...F} k="instagram" label="Instagram" ph="@handle" />
+                <Text {...F} k="google" label="Google Business listing" />
+              </Row>
+              <Text {...F} k="photoLinks" label="Photos of recent work" hint="Paste a link to a folder, album, or post. You can also just text them to us later." />
+              <Inset label="Reference 1">
+                <Row><Text {...F} k="ref1name" label="Name" /><Text {...F} k="ref1phone" label="Phone" type="tel" /></Row>
+              </Inset>
+              <Inset label="Reference 2">
+                <Row><Text {...F} k="ref2name" label="Name" /><Text {...F} k="ref2phone" label="Phone" type="tel" /></Row>
+              </Inset>
+            </FormCard>
+          </Reveal>
 
-          <Section n="06" title="Availability" sub="Helps us stop calling you about work you cannot take." optional>
-            <Select {...F} k="leadTime" label="Notice you need to schedule" opts={["A day or two", "About a week", "Two weeks", "A month"]}
-              hint="How much heads up you want before a start date." />
-            <Pills {...F} k="weekends" label="Do you work weekends?" opts={[["yes", "Yes"], ["sometimes", "Sometimes"], ["no", "No"]]} />
-          </Section>
-
-          <Section n="07" title="Show us your work" sub="Anything that shows what you do. Skip it if you would rather just talk." optional>
-            <div className="jmc-row">
-              <Text {...F} k="website" label="Website" ph="https://" />
-              <Text {...F} k="facebook" label="Facebook" />
-            </div>
-            <div className="jmc-row">
-              <Text {...F} k="instagram" label="Instagram" ph="@handle" />
-              <Text {...F} k="google" label="Google Business listing" />
-            </div>
-            <Text {...F} k="photoLinks" label="Photos of recent work" hint="Paste a link to a folder, album, or post. You can also just text them to us later." />
-            <div className="jmc-ref">
-              <div className="jmc-ref__h">REFERENCE 1</div>
-              <div className="jmc-row"><Text {...F} k="ref1name" label="Name" /><Text {...F} k="ref1phone" label="Phone" type="tel" /></div>
-            </div>
-            <div className="jmc-ref">
-              <div className="jmc-ref__h">REFERENCE 2</div>
-              <div className="jmc-row"><Text {...F} k="ref2name" label="Name" /><Text {...F} k="ref2phone" label="Phone" type="tel" /></div>
-            </div>
-          </Section>
-
-          <Section n="08" title="Anything else" sub="Last box. Tell us whatever does not fit above." optional>
-            <Text {...F} k="notes" label="Anything else we should know?" area ph="What you are best at, what you would rather not touch, who sent you" />
-          </Section>
+          <Reveal delay={0.05}>
+            <FormCard n="08" title="Anything else" sub="Last box. Tell us whatever does not fit above." optional>
+              <Text {...F} k="notes" label="Anything else we should know?" area ph="What you are best at, what you would rather not touch, who sent you" />
+            </FormCard>
+          </Reveal>
 
           {sendError ? (
-            <div className="jmc-sendfail">
+            <div role="alert" className="rounded-2xl border border-destructive/30 bg-white p-5 text-[15px] leading-relaxed text-destructive">
               Could not send that: {sendError}. Your answers are saved on this device, so try again in a moment.
             </div>
           ) : null}
         </form>
-      </main>
+      </Section>
 
-      <div className="jmc-submit">
-        <div className="jmc-submit__in">
-          {/* When a tap on Submit does nothing, the reason has to be right here next
-              to the button, not somewhere up the page the user has to go hunting for. */}
-          <div className={"jmc-submit__note" + (bad.length ? " is-bad" : "")}>
-            {bad.length
-              ? `Still needed: ${bad.slice(0, 3).map((k) => LABELS[k] || k).join(", ")}${bad.length > 3 ? `, and ${bad.length - 3} more` : ""}`
-              : pct === 100
-                ? "Looks complete."
-                : `${need.length - got} left. Takes about four minutes.`}
+      {/* Sticky submit. When a tap on Submit does nothing, the reason has to be right here
+          next to the button, not somewhere up the page the user has to go hunting for. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-md">
+        <div className="container max-w-3xl py-3">
+          <div className="flex items-center gap-4">
+            <p
+              aria-live="polite"
+              className={cn("flex-1 text-[13px] leading-snug", bad.length ? "font-semibold text-destructive" : "text-ink-muted")}
+            >
+              {bad.length
+                ? `Still needed: ${bad.slice(0, 3).map((k) => LABELS[k] || k).join(", ")}${bad.length > 3 ? `, and ${bad.length - 3} more` : ""}`
+                : pct === 100
+                  ? "Looks complete."
+                  : `${need.length - got} left. Takes about four minutes.`}
+            </p>
+            <Button type="submit" size="lg" disabled={sending} onClick={onSubmit} className="shrink-0">
+              {sending ? "Sending..." : "Submit"}
+            </Button>
           </div>
-          <button type="submit" className="jmc-btn" disabled={sending} onClick={onSubmit}>
-            {sending ? "Sending..." : "Submit"}
-          </button>
+          <p className="mt-2 text-xs text-ink-muted">
+            By submitting you agree to the{" "}
+            <Link href="/privacy" className="font-medium text-brand-600 underline-offset-4 hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </div>
       </div>
-
-      <Footer />
-    </div>
+    </SiteLayout>
   );
 }
 
@@ -525,20 +651,19 @@ const TradeChips = memo(function TradeChips(
   { selected, toggle }: { selected: string[]; toggle: (k: string, v: string) => void },
 ) {
   return (
-    <>
+    <div className="grid gap-5">
       {TRADE_GROUPS.map(([g, list]) => (
-        <div className="jmc-tgroup" key={g}>
-          <div className="jmc-tgroup__h">{g.toUpperCase()}</div>
-          <div className="jmc-chips">
+        <div key={g}>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">{g}</p>
+          <div className="flex flex-wrap gap-2">
             {list.map((t) => (
-              <button type="button" key={t}
-                className={"jmc-chip" + (selected.includes(t) ? " on" : "")}
+              <button type="button" key={t} className="pill" aria-pressed={selected.includes(t)}
                 onClick={() => toggle("trades", t)}>{t}</button>
             ))}
           </div>
         </div>
       ))}
-    </>
+    </div>
   );
 });
 
@@ -546,10 +671,9 @@ const CountyChips = memo(function CountyChips(
   { selected, toggle }: { selected: string[]; toggle: (k: string, v: string) => void },
 ) {
   return (
-    <div className="jmc-chips">
+    <div className="flex flex-wrap gap-2">
       {COUNTIES.map((c) => (
-        <button type="button" key={c}
-          className={"jmc-chip" + (selected.includes(c) ? " on" : "")}
+        <button type="button" key={c} className="pill" aria-pressed={selected.includes(c)}
           onClick={() => toggle("areas", c)}>{c}</button>
       ))}
     </div>
@@ -569,26 +693,35 @@ type FieldCtx = {
   pick: (k: string, v: string) => void;
 };
 
+function Req({ req }: { req?: boolean }) {
+  return req
+    ? <span className="text-brand-600" aria-hidden="true"> *</span>
+    : <span className="ml-2 font-medium normal-case tracking-normal text-ink-muted">optional</span>;
+}
+
 function Err({ k, msg, bad }: { k: string; msg: string; bad: string[] }) {
   if (!bad.includes(k)) return null;
-  return <div className="jmc-err">{msg}</div>;
+  return <p className="field-error" role="alert">{msg}</p>;
 }
 
 function Text(p: FieldCtx & { k: string; label: string; hint?: string; req?: boolean; ph?: string; type?: string; area?: boolean }) {
+  const id = `jmc-${p.k}`;
+  const invalid = p.bad.includes(p.k);
   const common = {
-    id: `jmc-${p.k}`,
+    id,
     value: p.vals[p.k] || "",
     placeholder: p.ph,
-    className: p.bad.includes(p.k) ? "jmc-bad" : "",
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => p.set(p.k, e.target.value),
+    className: cn("field", p.area && "min-h-[7rem] resize-y"),
+    "aria-invalid": invalid ? ("true" as const) : undefined,
+    "aria-describedby": p.hint ? `${id}-help` : undefined,
+    onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => p.set(p.k, e.target.value),
   };
   return (
-    <div className="jmc-f" data-field={p.k}>
-      <label htmlFor={`jmc-${p.k}`}>
-        {p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}
+    <div data-field={p.k}>
+      <label htmlFor={id} className="field-label">
+        {p.label}<Req req={p.req} />
       </label>
-      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
-      {p.area ? <textarea {...common} /> : (
+      {p.area ? <textarea {...common} rows={4} /> : (
         <input
           {...common}
           type={p.type || "text"}
@@ -596,176 +729,107 @@ function Text(p: FieldCtx & { k: string; label: string; hint?: string; req?: boo
           autoComplete={p.k === "name" ? "name" : p.k === "email" ? "email" : p.k === "phone" ? "tel" : p.k === "company" ? "organization" : undefined}
         />
       )}
+      {p.hint ? <p id={`${id}-help`} className="field-help">{p.hint}</p> : null}
       <Err k={p.k} msg="We need this one." bad={p.bad} />
     </div>
   );
 }
 
 function Select(p: FieldCtx & { k: string; label: string; req?: boolean; opts: string[]; hint?: string }) {
+  const id = `jmc-${p.k}`;
+  const invalid = p.bad.includes(p.k);
   return (
-    <div className="jmc-f" data-field={p.k}>
-      <label htmlFor={`jmc-${p.k}`}>
-        {p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}
+    <div data-field={p.k}>
+      <label htmlFor={id} className="field-label">
+        {p.label}<Req req={p.req} />
       </label>
-      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
-      <select id={`jmc-${p.k}`} value={p.vals[p.k] || ""} className={p.bad.includes(p.k) ? "jmc-bad" : ""}
-        onChange={(e) => p.set(p.k, e.target.value)}>
-        <option value="">Select</option>
-        {p.opts.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
+      <div className="relative">
+        <select
+          id={id}
+          value={p.vals[p.k] || ""}
+          className="field appearance-none pr-11"
+          aria-invalid={invalid ? "true" : undefined}
+          aria-describedby={p.hint ? `${id}-help` : undefined}
+          onChange={(e) => p.set(p.k, e.target.value)}
+        >
+          <option value="">Select</option>
+          {p.opts.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
+      </div>
+      {p.hint ? <p id={`${id}-help`} className="field-help">{p.hint}</p> : null}
       <Err k={p.k} msg="Pick one." bad={p.bad} />
     </div>
   );
 }
 
 function Pills(p: FieldCtx & { k: string; label: string; req?: boolean; hint?: string; opts: Array<[string, string]> }) {
+  const id = `jmc-${p.k}`;
   return (
-    <div className="jmc-f" data-field={p.k}>
-      <label>{p.label} {p.req ? <span className="jmc-req">*</span> : <span className="jmc-opt">optional</span>}</label>
-      {p.hint ? <p className="jmc-hint">{p.hint}</p> : null}
-      <div className="jmc-pills">
+    <div data-field={p.k}>
+      <span className="field-label" id={`${id}-label`}>{p.label}<Req req={p.req} /></span>
+      <div className="flex flex-wrap gap-2" role="group" aria-labelledby={`${id}-label`}>
         {p.opts.map(([v, t]) => (
-          <button type="button" key={v} className={"jmc-pill" + (p.picks[p.k] === v ? " on" : "")}
+          <button type="button" key={v} className="pill" aria-pressed={p.picks[p.k] === v}
             onClick={() => p.pick(p.k, v)}>{t}</button>
         ))}
       </div>
+      {p.hint ? <p className="field-help">{p.hint}</p> : null}
       <Err k={p.k} msg="Pick one." bad={p.bad} />
+    </div>
+  );
+}
+
+// Optional. Stored in picks so it rides along in the saved draft like every other choice.
+function Consent(p: FieldCtx & { k: string; text: string }) {
+  const id = `jmc-${p.k}`;
+  const on = p.picks[p.k] === "yes";
+  return (
+    <div data-field={p.k}>
+      <label htmlFor={id} className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5">
+        <input
+          id={id}
+          type="checkbox"
+          checked={on}
+          onChange={(e) => p.pick(p.k, e.target.checked ? "yes" : "no")}
+          className="mt-0.5 size-5 shrink-0 rounded border-input accent-navy"
+        />
+        <span className="text-sm leading-relaxed text-ink-soft">{p.text}</span>
+      </label>
+      <p className="field-help">Optional. Leave it unchecked and we will reach you by call or email instead.</p>
     </div>
   );
 }
 
 /* ---------------------------------------------------------------- shell */
 
+function Row({ cols = 2, children }: { cols?: 2 | 3; children: ReactNode }) {
+  return <div className={cn("grid gap-5", cols === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>{children}</div>;
+}
 
-function Section(p: { n: string; title: string; sub: string; optional?: boolean; children: React.ReactNode }) {
+/** A paper inset inside a card, for follow up fields and the reference blocks. */
+function Inset({ label, children }: { label?: string; children: ReactNode }) {
   return (
-    <section className="jmc-sec">
-      <div className="jmc-sec__head">
-        <span className="jmc-sec__n">{p.n}</span>
-        <h2>{p.title}</h2>
-        {p.optional ? <span className="jmc-opt">optional</span> : null}
-      </div>
-      <p className="jmc-sec__sub">{p.sub}</p>
-      {p.children}
-    </section>
+    <div className="mt-4 grid gap-5 rounded-2xl border border-line bg-paper p-5 first:mt-0">
+      {label ? <p className="-mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">{label}</p> : null}
+      {children}
+    </div>
   );
 }
 
-/* Scoped hard under .jm-contractors so nothing leaks into the rest of the site. */
-function Style() {
+function FormCard(p: { n: string; title: string; sub: string; optional?: boolean; children: ReactNode }) {
+  const id = `jmc-sec-${p.n}`;
   return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: `
-.jm-contractors{--c-bg:#F8FAFC;--c-card:#fff;--c-ink:#0F172A;--c-ink2:#64748B;--c-ink3:#94A3B8;
---c-line:#E2E8F0;--c-line2:#CBD5E1;--c-acc:#2563EB;--c-accb:#60A5FA;--c-soft:#EFF6FF;--c-red:#DC2626;
-background:var(--c-bg);color:var(--c-ink);
-font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;}
-.jm-contractors *{box-sizing:border-box}
-.jm-contractors main{padding-bottom:96px}
-.jmc-wrap{max-width:680px;margin:0 auto;padding:0 16px}
-.jmc-prog{position:sticky;top:0;z-index:30;background:var(--c-ink);border-bottom:1px solid rgba(255,255,255,.08)}
-.jmc-prog__bar{height:3px;background:rgba(255,255,255,.14)}
-.jmc-prog__fill{height:100%;background:var(--c-accb);transition:width .25s ease-out}
-.jmc-prog__meta{display:flex;justify-content:space-between;max-width:680px;margin:0 auto;padding:9px 16px;font-size:13px;color:#94A3B8}
-.jmc-prog__meta b{color:#fff;font-weight:600}
-.jmc-hero{background:var(--c-ink);color:#fff;padding:34px 16px 42px}
-.jmc-hero__in{max-width:680px;margin:0 auto}
-.jmc-hero h1{font-size:34px;line-height:1.12;letter-spacing:-.03em;margin:0 0 14px;font-weight:800;color:#fff}
-.jmc-hero p{color:#CBD5E1;font-size:15.5px;margin:0 0 11px;max-width:54ch;line-height:1.55}
-.jmc-hero p b{color:#fff;font-weight:600}
-@media(max-width:520px){.jmc-hero h1{font-size:29px}}
-.jmc-replay{display:inline-flex;align-items:center;gap:7px;margin-top:14px;cursor:pointer;
-background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:#fff;font:inherit;font-size:13.5px;
-font-weight:500;padding:8px 14px;border-radius:999px}
-.jmc-replay:hover{background:rgba(255,255,255,.13)}
-.jmc-sec{background:var(--c-card);border:1px solid var(--c-line);border-radius:12px;padding:20px;margin:14px 0;
-box-shadow:0 1px 2px rgba(15,23,42,.06)}
-.jmc-sec__head{display:flex;align-items:baseline;gap:9px;margin-bottom:4px}
-.jmc-sec__n{font-size:11px;font-weight:700;color:var(--c-acc);letter-spacing:.09em}
-.jmc-sec h2{font-size:17px;margin:0;font-weight:600;letter-spacing:-.01em}
-.jmc-sec__sub{color:var(--c-ink2);font-size:14px;margin:0 0 18px}
-.jmc-opt{font-size:11px;font-weight:600;color:var(--c-ink3);background:var(--c-bg);border:1px solid var(--c-line);
-padding:2px 7px;border-radius:999px}
-.jmc-f{margin-bottom:17px}
-.jmc-f:last-child{margin-bottom:0}
-.jm-contractors label{display:block;font-size:14px;font-weight:500;margin-bottom:6px;color:var(--c-ink)}
-.jmc-hint{font-size:13px;color:var(--c-ink2);margin:-2px 0 7px}
-.jmc-req{color:var(--c-acc);font-weight:700}
-.jm-contractors input,.jm-contractors select,.jm-contractors textarea{width:100%;font:inherit;font-size:16px;
-padding:11px 12px;color:var(--c-ink);background:#fff;border:1px solid var(--c-line2);border-radius:9px;outline:none;
-appearance:none;-webkit-appearance:none}
-.jm-contractors select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%2364748B' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-background-repeat:no-repeat;background-position:right 12px center;padding-right:34px}
-.jm-contractors textarea{min-height:84px;resize:vertical}
-.jm-contractors input:focus,.jm-contractors select:focus,.jm-contractors textarea:focus{border-color:var(--c-acc);box-shadow:0 0 0 3px var(--c-soft)}
-.jm-contractors .jmc-bad{border-color:var(--c-red)}
-.jmc-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.jmc-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-@media(max-width:520px){.jmc-row,.jmc-row3{grid-template-columns:1fr}}
-.jmc-pills{display:flex;flex-wrap:wrap;gap:8px}
-.jmc-pill{padding:9px 15px;border:1px solid var(--c-line2);border-radius:999px;font:inherit;font-size:14.5px;
-cursor:pointer;background:#fff;color:var(--c-ink)}
-.jmc-pill.on{background:var(--c-acc);border-color:var(--c-acc);color:#fff;font-weight:600}
-.jmc-tgroup{margin-bottom:15px}
-.jmc-tgroup__h{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--c-ink3);margin-bottom:8px}
-.jmc-chips{display:flex;flex-wrap:wrap;gap:7px}
-.jmc-chip{padding:7px 13px;border:1px solid var(--c-line2);border-radius:999px;font:inherit;font-size:14px;
-cursor:pointer;background:#fff;color:var(--c-ink)}
-.jmc-chip:hover{border-color:var(--c-ink3)}
-.jmc-chip.on{background:var(--c-ink);border-color:var(--c-ink);color:#fff}
-.jmc-count{font-size:13px;color:var(--c-ink2);margin-top:10px}
-.jmc-count b{color:var(--c-ink)}
-.jmc-choices{display:flex;flex-direction:column;gap:8px}
-.jmc-choice{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:13px 14px;cursor:pointer;
-border:1px solid var(--c-line2);border-radius:10px;background:#fff;font:inherit;text-align:left;width:100%}
-.jmc-choice.on{border-color:var(--c-acc);background:var(--c-soft)}
-.jmc-choice__t{font-size:15px;font-weight:500;line-height:1.35;color:var(--c-ink)}
-.jmc-choice__d{font-size:13px;color:var(--c-ink2);line-height:1.4}
-.jmc-reveal{margin-top:14px;padding:15px;background:var(--c-bg);border:1px solid var(--c-line);border-radius:10px}
-.jmc-ref{border:1px solid var(--c-line);border-radius:10px;padding:14px;margin-bottom:10px;background:var(--c-bg)}
-.jmc-ref__h{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--c-ink3);margin-bottom:10px}
-.jmc-err{color:var(--c-red);font-size:13px;margin-top:5px}
-.jmc-inapp{background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:15px 16px;margin:14px 0;
-display:flex;flex-direction:column;gap:6px}
-.jmc-inapp b{color:#92400E;font-weight:650;font-size:14.5px}
-.jmc-inapp span{color:#78350F;font-size:14px;line-height:1.55}
-.jmc-inapp span b{font-weight:650}
-.jmc-sendfail{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;border-radius:10px;padding:14px;
-margin:14px 0;font-size:14px}
-.jmc-submit{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(248,250,252,.94);
-backdrop-filter:blur(8px);border-top:1px solid var(--c-line);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
-.jmc-submit__in{max-width:680px;margin:0 auto;display:flex;align-items:center;gap:14px}
-.jmc-submit__note{font-size:13px;color:var(--c-ink2);flex:1;line-height:1.35}
-.jmc-submit__note.is-bad{color:var(--c-red);font-weight:600}
-.jmc-btn{font:inherit;font-size:16px;font-weight:600;padding:13px 26px;border-radius:10px;border:1px solid var(--c-acc);
-background:var(--c-acc);color:#fff;cursor:pointer;flex:none;text-decoration:none;display:inline-block}
-.jmc-btn:hover{background:#1D4ED8;border-color:#1D4ED8}
-.jmc-btn:disabled{opacity:.5;cursor:not-allowed}
-.jmc-thanks{display:grid;place-items:center;padding:80px 16px;min-height:52vh}
-.jmc-thanks__in{max-width:520px;text-align:center}
-.jmc-thanks h1{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:18px 0 12px}
-.jmc-thanks p{color:var(--c-ink2);font-size:16px;line-height:1.6;margin:0 0 26px}
-.jmc-check{width:58px;height:58px;border-radius:50%;background:#DCFCE7;color:#15803D;display:grid;
-place-items:center;margin:0 auto}
-.jmc-vid{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
-.jmc-vid__scrim{position:absolute;inset:0;background:rgba(8,12,22,.88);backdrop-filter:blur(6px)}
-.jmc-vid__box{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px}
-.jmc-vid__frame{position:relative;width:min(calc(70vh * 9 / 16),92vw);aspect-ratio:9/16;border-radius:16px;
-overflow:hidden;background:#000;box-shadow:0 24px 60px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12)}
-.jmc-vid__frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
-.jmc-vid__sound{position:absolute;inset:0;z-index:2;cursor:pointer;display:flex;flex-direction:column;
-align-items:center;justify-content:center;gap:12px;background:rgba(8,12,22,.42);border:0;color:#fff;font:inherit}
-.jmc-vid__ring{width:68px;height:68px;border-radius:50%;background:var(--c-accb);display:grid;place-items:center;
-color:var(--c-ink);box-shadow:0 6px 24px rgba(96,165,250,.45)}
-.jmc-vid__soundt{font-size:15px;font-weight:600}
-.jmc-vid__unmute{position:absolute;right:12px;top:12px;z-index:2;width:38px;height:38px;border-radius:50%;
-background:rgba(8,12,22,.66);border:1px solid rgba(255,255,255,.2);color:#fff;display:grid;place-items:center;cursor:pointer}
-.jmc-vid__skip{background:#fff;color:var(--c-ink);border:1px solid #fff;font:inherit;font-size:15px;font-weight:600;
-padding:11px 22px;border-radius:10px;cursor:pointer}
-.jmc-vid__note{color:#94A3B8;font-size:13px;text-align:center;max-width:34ch;margin:0}
-`,
-      }}
-    />
+    <section className="surface p-6 sm:p-8" aria-labelledby={id}>
+      <span className="eyebrow eyebrow-line">Step {p.n}</span>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <h2 id={id} className="text-2xl text-navy sm:text-[1.75rem]">{p.title}</h2>
+        {p.optional ? (
+          <span className="rounded-full border border-line bg-paper px-2.5 py-0.5 text-xs font-semibold text-ink-muted">optional</span>
+        ) : null}
+      </div>
+      <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{p.sub}</p>
+      <div className="mt-7 grid gap-6">{p.children}</div>
+    </section>
   );
 }

@@ -51,7 +51,7 @@ export const SITE_ROUTES = [
     file: "mediakit.html",
     title: "My Story & Press Kit | Josh Moore",
     description: "From door-to-door sales and music to full-time real estate investing. Explore Josh Moore's story, biography, awards, press, photos, and media contact.",
-    lastmod: "2026-09-22",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.8",
   },
@@ -61,7 +61,7 @@ export const SITE_ROUTES = [
     title: "Josh Moore | Creative Finance Real Estate Investor in Michigan",
     description:
       "Josh Moore uses creative financing to buy single family, multifamily, commercial, RV park and mobile home park deals in Michigan and beyond.",
-    lastmod: "2026-08-16",
+    lastmod: "2026-09-28",
     changefreq: "weekly",
     priority: "1.0",
   },
@@ -70,8 +70,8 @@ export const SITE_ROUTES = [
     file: "buy-box.html",
     title: "Buy Box | What Josh Moore Is Buying",
     description:
-      "Investment criteria for single family, commercial multifamily, mobile home park and RV park deals: price caps, unit counts, markets, financing and deal killers.",
-    lastmod: "2026-08-16",
+      "Buying criteria for single family, commercial multifamily, mobile home park and RV park deals: price caps, unit counts, markets, financing and deal killers.",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.9",
   },
@@ -81,7 +81,7 @@ export const SITE_ROUTES = [
     title: "Submit a Deal | Josh Moore",
     description:
       "Send Josh Moore a property to review. A short guided form covering single family, multifamily, mobile home park and RV park / campground deals.",
-    lastmod: "2026-08-16",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.9",
   },
@@ -91,7 +91,7 @@ export const SITE_ROUTES = [
     title: "About Josh Moore | Creative Real Estate Investor",
     description:
       "Josh Moore's story, core values and areas of expertise: seller financing, subject-to, lease options and wraps across residential and commercial property.",
-    lastmod: "2026-08-16",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.8",
   },
@@ -101,7 +101,7 @@ export const SITE_ROUTES = [
     title: "Live In, Rent Smart | Free House Hacking Guide by Josh Moore",
     description:
       "A free beginner's guide to house hacking. Download the PDF or read it online to lower your housing cost, learn the numbers and buy with a plan.",
-    lastmod: "2026-08-16",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.8",
   },
@@ -110,8 +110,8 @@ export const SITE_ROUTES = [
     file: "collaborate.html",
     title: "Collaborate with Josh Moore",
     description:
-      "An intake form for bird dogs, wholesalers, private and hard money lenders, capital partners, brokers and other industry partners who want to work together.",
-    lastmod: "2026-08-16",
+      "Bird dogs, wholesalers, hard money, DSCR and commercial lenders, brokers and industry partners: tell Josh Moore how you work and let's find a win together.",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.7",
   },
@@ -121,7 +121,7 @@ export const SITE_ROUTES = [
     title: "Work With Us | Contractors and Trades | Josh Moore",
     description:
       "Contractors, subs and tradesmen in Muskegon, Kent, Ottawa and Kalamazoo counties: tell us what you do and where you work, and we will call you when a job in your trade comes up.",
-    lastmod: "2026-09-11",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.7",
   },
@@ -131,7 +131,7 @@ export const SITE_ROUTES = [
     title: "Resources for Real Estate Investors | Josh Moore",
     description:
       "Tools and services Josh Moore recommends: investor-friendly insurance, hard money and construction lending, free West Michigan deal finder training, and AI tools.",
-    lastmod: "2026-08-16",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.7",
   },
@@ -141,7 +141,7 @@ export const SITE_ROUTES = [
     title: "Contact Josh Moore | Book a Call",
     description:
       "Schedule a time with Josh Moore to talk through a deal or a partnership, and follow along on Instagram, TikTok, X, Threads and LinkedIn.",
-    lastmod: "2026-08-16",
+    lastmod: "2026-09-28",
     changefreq: "monthly",
     priority: "0.6",
   },
@@ -151,7 +151,7 @@ export const SITE_ROUTES = [
     title: "Privacy Policy | Josh Moore",
     description:
       "How itsjoshmoore.com collects, uses and shares the information you provide through the deal submission and contact forms.",
-    lastmod: "2026-08-16",
+    lastmod: "2026-09-28",
     changefreq: "yearly",
     priority: "0.3",
   },

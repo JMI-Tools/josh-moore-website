@@ -1,82 +1,112 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { trpc } from "@/lib/trpc";
+import { NAV_LINKS } from "@/components/site/siteData";
+import { cn } from "@/lib/utils";
 
 export default function Header() {
   const [location] = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/about", label: "About" },
-    { href: "/mediakit", label: "Story & Press" },
-    { href: "/buy-box", label: "Buy Box" },
-    { href: "/submit-deal", label: "Submit a Deal" },
-    { href: "/resources", label: "Resources" },
-    { href: "/contact", label: "Contact" },
-    { href: "/collaborate", label: "Collaborate" },
-  ];
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  const isActive = (href: string) => {
-    if (href === "/") return location === "/";
-    return location.startsWith(href);
-  };
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Close the sheet on navigation and lock the page behind it while open.
+  useEffect(() => setOpen(false), [location]);
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  const isActive = (href: string) =>
+    href === "/" ? location === "/" : location.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-sm">
-      <div className="container flex h-20 items-center justify-between">
-        <Link href="/">
-          <img src="/logo-jm.png" alt="Josh Moore" className="h-16 w-auto cursor-pointer" />
+    <header
+      className={cn(
+        "sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md transition-shadow",
+        scrolled ? "shadow-[0_1px_0_0_#dce2e6,0_8px_24px_-16px_rgb(10_30_50/0.25)]" : "shadow-[0_1px_0_0_#dce2e6]",
+      )}
+    >
+      <div className="container flex h-[72px] items-center justify-between gap-6">
+        <Link href="/" aria-label="Josh Moore, home" className="shrink-0">
+          <img src="/logo-jm-480.webp" alt="Josh Moore" className="h-12 w-auto" width={72} height={48} />
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-5">
-          {navLinks.map((link) => (
-            <Link key={link.href} href={link.href}>
-              <a
-                className={`text-sm font-semibold transition-colors hover:text-primary ${
-                  isActive(link.href)
-                    ? "text-primary border-b-2 border-primary pb-1"
-                    : "text-foreground"
-                }`}
-              >
-                {link.label}
-              </a>
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
+          {NAV_LINKS.filter((l) => l.href !== "/submit-deal").map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "relative rounded-full px-3.5 py-2 text-[14px] font-medium transition-colors",
+                isActive(link.href)
+                  ? "text-navy after:absolute after:inset-x-3.5 after:-bottom-px after:h-0.5 after:rounded-full after:bg-brand"
+                  : "text-ink-soft hover:bg-navy/5 hover:text-navy",
+              )}
+            >
+              {link.label}
             </Link>
           ))}
         </nav>
 
-        {/* Mobile Menu Button */}
+        <div className="hidden lg:block">
+          <Button asChild size="sm">
+            <Link href="/submit-deal">
+              Submit a deal
+              <ArrowRight />
+            </Link>
+          </Button>
+        </div>
+
         <Button
           variant="ghost"
           size="icon"
           className="lg:hidden"
-          aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
-          aria-expanded={mobileMenuOpen}
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label={open ? "Close navigation" : "Open navigation"}
+          aria-expanded={open}
+          aria-controls="mobile-nav"
+          onClick={() => setOpen((v) => !v)}
         >
-          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {open ? <X className="size-6" /> : <Menu className="size-6" />}
         </Button>
       </div>
 
-      {/* Mobile Navigation */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-t bg-white">
-          <nav className="container flex flex-col py-4 space-y-4">
-            {navLinks.map((link) => (
-              <Link key={link.href} href={link.href}>
-                <a
-                  className={`text-base font-medium transition-all hover:text-primary hover:scale-105 ${
-                location === link.href ? "text-primary font-bold" : "text-foreground"
-              }`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {link.label}
-                </a>
+      {open && (
+        <div
+          id="mobile-nav"
+          className="fixed inset-x-0 top-[72px] bottom-0 z-40 overflow-y-auto bg-white lg:hidden"
+        >
+          <nav className="container flex flex-col py-4" aria-label="Main">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "flex items-center justify-between border-b border-line py-4 font-display text-2xl font-semibold tracking-tight",
+                  isActive(link.href) ? "text-brand-600" : "text-navy",
+                )}
+              >
+                {link.label}
+                <ArrowRight className="size-5 opacity-40" />
               </Link>
             ))}
+            <div className="mt-6 flex flex-col gap-3">
+              <Button asChild size="lg">
+                <Link href="/submit-deal">Submit a deal</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href="/contact">Book a call</Link>
+              </Button>
+            </div>
           </nav>
         </div>
       )}

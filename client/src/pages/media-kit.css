@@ -1452,3 +1452,16 @@
 @media(max-width:900px){.mk-vault-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.mk-vault-grid{grid-template-columns:1fr}}
 @media print{.mk-asset-vault{display:none}}
+
+/*
+  Shared site footer. The footer rules earlier in this file were written for
+  the previous footer markup (35px padding, 11px paragraphs under 700px) and
+  squeeze the new one. revert-layer hands padding and type back to the
+  footer's own utility classes; everything else about the page is untouched.
+*/
+.mk-page > footer .container {
+  padding: revert-layer;
+}
+.mk-page > footer p {
+  font-size: revert-layer;
+}

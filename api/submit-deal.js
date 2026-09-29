@@ -1,10 +1,25 @@
 // Vercel Serverless Function: /api/submit-deal
-// Routes deal form submissions to GoHighLevel (correct pipeline) + Supabase (correct table)
+//
+// Takes a submission from the /submit-deal form and writes it three places:
+//   1. GoHighLevel: the contact (upsert), an opportunity in the pipeline for
+//      that asset class, and a note holding every answer the visitor gave.
+//   2. Supabase: one row in the table for that asset class. Answers with no
+//      column of their own ride along in additional_notes so nothing is lost.
+//   3. Josh's inbox, through notifyJosh.
+//
+// The GHL contact is the one write that has to succeed. If it fails the
+// visitor gets a 502 and can try again. Everything after it logs and carries
+// on, so a Supabase or email hiccup never turns a real lead into an error.
+
+import { notifyJosh, clean, looksLikeBot } from "./_lib/notify.js";
 
 const GHL_API_KEY = process.env.GHL_API_KEY;
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const GHL_API = "https://services.leadconnectorhq.com";
+const UPSTREAM_TIMEOUT_MS = 15_000;
 
 // Pipeline and stage IDs per asset class
 const GHL_PIPELINES = {
@@ -38,427 +53,749 @@ const SUPABASE_TABLES = {
   rv_park: "rv_park_deals",
 };
 
+const PROPERTY_TYPES = Object.keys(GHL_PIPELINES);
+
+const TYPE_LABELS = {
+  sfr: "Single family",
+  multifamily: "Multifamily",
+  mhp: "Mobile home park",
+  rv_park: "RV park / campground",
+};
+
+const ASSET_TAGS = {
+  sfr: "asset-class-sfr",
+  multifamily: "asset-class-multifamily",
+  mhp: "asset-class-mhp",
+  rv_park: "asset-class-rv-park",
+};
+
+// ── Input handling ───────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const KEY_RE = /^[A-Za-z][A-Za-z0-9_]{0,48}$/;
+const MAX_KEYS = 120;
+const LONG_TEXT_KEYS = new Set([
+  "additionalNotes",
+  "repairDescription",
+  "t12Available",
+  "violationsDesc",
+  "environmentalDesc",
+]);
+// Never written anywhere. The honeypot and the timing stamp are read by
+// looksLikeBot() and then dropped.
+const INTERNAL_KEYS = new Set(["company_website", "started_at"]);
+
+/**
+ * Run clean() over every string the visitor sent, keep booleans, keep string
+ * arrays, drop everything else. Keys are capped in number and shape so a
+ * hand-built payload cannot flood the note.
+ */
+function sanitize(body) {
+  const out = {};
+  let count = 0;
+  for (const [key, raw] of Object.entries(body)) {
+    if (++count > MAX_KEYS) break;
+    if (!KEY_RE.test(key) || INTERNAL_KEYS.has(key)) continue;
+    if (typeof raw === "string") {
+      const value = clean(raw, LONG_TEXT_KEYS.has(key) ? 4000 : 500);
+      if (value !== "") out[key] = value;
+    } else if (typeof raw === "boolean") {
+      out[key] = raw;
+    } else if (typeof raw === "number" && Number.isFinite(raw)) {
+      out[key] = String(raw);
+    } else if (Array.isArray(raw)) {
+      const items = raw
+        .filter((item) => typeof item === "string")
+        .map((item) => clean(item, 200))
+        .filter((item) => item !== "")
+        .slice(0, 30);
+      if (items.length) out[key] = items;
+    }
+  }
+  return out;
+}
+
+/**
+ * The one number parser. Finds the first number in the text and strips
+ * everything except digits and a decimal point, so "$120,000" is 120000,
+ * "1,400 sqft" is 1400, "3.5% / I don't know" is 3.5 and "I don't know" is
+ * null. A trailing k or m ("$78k", "1.2M") is expanded.
+ */
+function toNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const match = value.match(/(\d[\d,]*(?:\.\d+)?|\.\d+)\s*([kKmM])?(?![A-Za-z])/);
+  if (!match) return null;
+  const n = parseFloat(match[1].replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(n)) return null;
+  const unit = (match[2] || "").toLowerCase();
+  if (unit === "k") return n * 1_000;
+  if (unit === "m") return n * 1_000_000;
+  return n;
+}
+
+function toInt(value) {
+  const n = toNumber(value);
+  return n === null ? null : Math.round(n);
+}
+
+function toYear(value) {
+  const n = toInt(value);
+  return n !== null && n >= 1600 && n <= 2100 ? n : null;
+}
+
+/** Whole-number count, or null when the visitor answered with a percentage. */
+function toCount(value) {
+  if (typeof value === "string" && value.includes("%")) return null;
+  return toInt(value);
+}
+
+function digitsOf(value) {
+  return typeof value === "string" ? value.replace(/\D/g, "") : "";
+}
+
+/**
+ * Money for the note. A plain number prints as "$120,000" plus any unit
+ * suffix. Text the visitor wrote around it ("negotiable", "I don't know",
+ * "50% of spread") is kept as written so meaning is never lost.
+ */
+function fmtMoney(value, suffix = "") {
+  const n = toNumber(value);
+  if (n === null) return typeof value === "string" ? value : null;
+  const hasWords = typeof value === "string" && /[a-jln-zA-JLN-Z\/]/.test(value);
+  if (hasWords) return value;
+  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}${suffix}`;
+}
+
+// ── Labels ───────────────────────────────────────────────────────────────────
+
+const LABELS = {
+  propertyType: "Property type",
+  submitterRole: "Role",
+  isOwner: "Owns the property",
+  email: "Email",
+  phone: "Phone",
+  preferredContact: "Preferred contact",
+  smsConsent: "Text message consent",
+  propertyAddress: "Address",
+  askingPrice: "Asking price",
+  arv: "ARV",
+  unitCount: "Total units",
+  bedrooms: "Bedrooms",
+  bathrooms: "Bathrooms",
+  squareFootage: "Square footage",
+  yearBuilt: "Year built",
+  condition: "Condition",
+  estimatedRepairs: "Estimated repairs",
+  repairDescription: "Repairs described",
+  occupancyStatus: "Occupancy",
+  currentRent: "Monthly rent",
+  hasLease: "Lease",
+  leaseExpiry: "Lease expires",
+  grossRents: "Gross monthly rents",
+  currentNoi: "NOI",
+  capRate: "Cap rate",
+  t12Available: "T12 / rent roll notes",
+  hasMortgage: "Existing mortgage",
+  mortgageBalance: "Mortgage balance",
+  mortgageRate: "Mortgage rate",
+  mortgagePayment: "Mortgage payment",
+  assumable: "Assumable",
+  creativeFinancing: "Open to creative financing",
+  creativeFinancingOptions: "Creative finance options",
+  sellerFinancing: "Open to seller financing",
+  motivation: "Seller motivation",
+  totalPads: "Total pads",
+  occupiedPads: "Occupied pads",
+  waterSewerType: "Water and sewer",
+  hasParkOwnedHomes: "Home ownership",
+  parkOwnedHomes: "Park-owned homes",
+  parkOwnedCondition: "Park-owned home condition",
+  lotRent: "Lot rent",
+  infrastructureIssues: "Infrastructure condition",
+  violations: "City or county violations",
+  violationsDesc: "Violations described",
+  environmentalIssues: "Environmental issues",
+  environmentalDesc: "Environmental issues described",
+  seasonal: "Season",
+  seasonOpen: "Season opens",
+  seasonClose: "Season closes",
+  peakOccupancy: "Peak season occupancy",
+  yearRoundOccupancy: "Current occupancy",
+  longTermTenants: "Long-term residents",
+  longTermCount: "Long-term resident count",
+  siteTypes: "Site types",
+  managementType: "Management",
+  bookingPlatform: "Booking platform",
+  amenities: "Amenities",
+  dealStatus: "Status on this deal",
+  assignmentFee: "Referral fee expectation",
+  additionalNotes: "Notes",
+  howHeard: "How they heard about Josh",
+  consent: "Confirmed accurate",
+};
+
+// Labels that read differently for one asset class.
+const LABEL_OVERRIDES = {
+  multifamily: { occupancyStatus: "Occupancy" },
+  mhp: {
+    totalPads: "Total lots",
+    occupiedPads: "Occupied lots / occupancy",
+    grossRents: "Gross monthly income",
+  },
+  rv_park: {
+    totalPads: "Total sites",
+    grossRents: "Gross annual revenue",
+  },
+};
+
+const YES_NO = { yes: "Yes", no: "No", idk: "I don't know", unsure: "Not sure" };
+const CONDITION = {
+  turnkey: "Turnkey",
+  light: "Light updates",
+  moderate: "Moderate rehab",
+  full: "Full gut",
+  tear: "Tear down",
+  "value-add": "Significant value-add",
+  idk: "I don't know",
+};
+
+// Coded answers, spelled out per key so "full" reads as a gut rehab under
+// condition and as fully occupied under occupancy.
+const VALUES = {
+  propertyType: TYPE_LABELS,
+  submitterRole: {
+    owner: "Property owner",
+    birddog: "Bird dog",
+    wholesaler: "Wholesaler / investor",
+    agent: "Agent / broker",
+    other: "Other",
+  },
+  preferredContact: { call: "Call", text: "Text", email: "Email" },
+  condition: CONDITION,
+  occupancyStatus: {
+    vacant: "Vacant",
+    owner: "Owner occupied",
+    tenant: "Tenant occupied",
+    partial: "Partially occupied",
+    full: "Fully occupied",
+    idk: "I don't know",
+  },
+  hasLease: { mtm: "Month to month", fixed: "Fixed term", idk: "I don't know" },
+  hasMortgage: YES_NO,
+  assumable: YES_NO,
+  creativeFinancing: YES_NO,
+  sellerFinancing: YES_NO,
+  violations: YES_NO,
+  environmentalIssues: YES_NO,
+  longTermTenants: YES_NO,
+  waterSewerType: {
+    "city-city": "City water + city sewer",
+    "well-septic": "Well + septic",
+    "city-septic": "City water + septic",
+    "well-city": "Well + city sewer",
+    idk: "I don't know",
+  },
+  hasParkOwnedHomes: { toh: "Tenant-owned (TOH)", poh: "Park-owned (POH)", mixed: "Mixed" },
+  parkOwnedCondition: { good: "Good", fair: "Fair", poor: "Poor", idk: "I don't know" },
+  infrastructureIssues: { good: "Good", fair: "Fair", poor: "Poor / aging", idk: "I don't know" },
+  seasonal: { seasonal: "Seasonal", yearround: "Year-round" },
+  managementType: { self: "Self-managed", third: "Third-party management" },
+  dealStatus: { contract: "Has it under contract", referring: "Referring the lead", other: "Other" },
+  howHeard: {
+    instagram: "Instagram",
+    facebook: "Facebook",
+    referral: "Referral",
+    google: "Google search",
+    meetup: "Meetup / event",
+    subto: "SubTo / Pace Morby community",
+    other: "Other",
+  },
+};
+
+// Money keys and the unit that follows a plain number. Some depend on the
+// asset class: gross rents are monthly for apartments and parks, annual for
+// RV parks.
+const MONEY_SUFFIX = {
+  askingPrice: "",
+  arv: "",
+  estimatedRepairs: "",
+  currentRent: "/mo",
+  mortgageBalance: "",
+  mortgagePayment: "/mo",
+  currentNoi: "",
+  lotRent: "/lot/mo",
+  assignmentFee: "",
+  grossRents: { multifamily: "/mo", mhp: "/mo", rv_park: "/yr", sfr: "" },
+};
+
+function labelFor(key, propertyType) {
+  const override = LABEL_OVERRIDES[propertyType];
+  if (override && override[key]) return override[key];
+  if (LABELS[key]) return LABELS[key];
+  // Unknown key: "someNewField" reads as "Some new field".
+  const words = key.replace(/_/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function formatValue(key, value, propertyType) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.length ? value.join(", ") : null;
+  const text = String(value);
+  const coded = VALUES[key];
+  if (coded && coded[text]) return coded[text];
+  if (key in MONEY_SUFFIX) {
+    const suffix = MONEY_SUFFIX[key];
+    return fmtMoney(text, typeof suffix === "string" ? suffix : suffix[propertyType] || "");
+  }
+  return text;
+}
+
+/** "Label: value" lines for the given keys, skipping anything unanswered. */
+function linesFor(data, keys, propertyType) {
+  const lines = [];
+  for (const key of keys) {
+    const value = formatValue(key, data[key], propertyType);
+    if (value !== null) lines.push(`${labelFor(key, propertyType)}: ${value}`);
+  }
+  return lines;
+}
+
+// ── The note ─────────────────────────────────────────────────────────────────
+
+const NOTE_SECTIONS = [
+  {
+    title: "SUBMITTED BY",
+    keys: ["submitterRole", "isOwner", "email", "phone", "preferredContact", "smsConsent"],
+  },
+  {
+    title: "PROPERTY",
+    keys: [
+      "propertyType",
+      "propertyAddress",
+      "askingPrice",
+      "arv",
+      "unitCount",
+      "bedrooms",
+      "bathrooms",
+      "squareFootage",
+      "yearBuilt",
+      "condition",
+      "estimatedRepairs",
+      "repairDescription",
+      "totalPads",
+      "occupiedPads",
+      "waterSewerType",
+      "hasParkOwnedHomes",
+      "parkOwnedHomes",
+      "parkOwnedCondition",
+      "infrastructureIssues",
+      "violations",
+      "violationsDesc",
+      "environmentalIssues",
+      "environmentalDesc",
+      "seasonal",
+      "seasonOpen",
+      "seasonClose",
+      "siteTypes",
+      "amenities",
+      "managementType",
+      "bookingPlatform",
+    ],
+  },
+  {
+    title: "OCCUPANCY AND INCOME",
+    keys: [
+      "occupancyStatus",
+      "peakOccupancy",
+      "yearRoundOccupancy",
+      "longTermTenants",
+      "longTermCount",
+      "currentRent",
+      "hasLease",
+      "leaseExpiry",
+      "grossRents",
+      "lotRent",
+      "currentNoi",
+      "capRate",
+      "t12Available",
+    ],
+  },
+  {
+    title: "FINANCING",
+    keys: [
+      "hasMortgage",
+      "mortgageBalance",
+      "mortgageRate",
+      "mortgagePayment",
+      "assumable",
+      "creativeFinancing",
+      "creativeFinancingOptions",
+      "sellerFinancing",
+    ],
+  },
+  {
+    title: "DEAL TERMS",
+    keys: ["dealStatus", "assignmentFee", "motivation"],
+  },
+  {
+    title: "ADDITIONAL INFO",
+    keys: ["additionalNotes", "howHeard", "consent"],
+  },
+];
+
+const FINANCING_KEYS = NOTE_SECTIONS.find((s) => s.title === "FINANCING").keys;
+
+function fullName(data) {
+  return [data.firstName, data.lastName].filter(Boolean).join(" ");
+}
+
+/**
+ * Every answer the visitor gave, grouped and labeled. Keys the sections do
+ * not know about land in a final "OTHER ANSWERS" block, so a new question on
+ * the form shows up here before anyone remembers to add it to a section.
+ */
+function buildNote(data) {
+  const type = data.propertyType;
+  const submitted = new Date().toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  const parts = [
+    `DEAL SUBMISSION: ${(TYPE_LABELS[type] || type).toUpperCase()}`,
+    `Submitted: ${submitted} ET`,
+  ];
+
+  const written = new Set(["firstName", "lastName"]);
+  for (const section of NOTE_SECTIONS) {
+    const lines = linesFor(data, section.keys, type);
+    section.keys.forEach((k) => written.add(k));
+    if (section.title === "SUBMITTED BY") {
+      const name = fullName(data);
+      if (name) lines.unshift(`Name: ${name}`);
+    }
+    if (lines.length) parts.push("", `[ ${section.title} ]`, ...lines);
+  }
+
+  const leftover = Object.keys(data).filter((k) => !written.has(k));
+  const otherLines = linesFor(data, leftover, type);
+  if (otherLines.length) parts.push("", "[ OTHER ANSWERS ]", ...otherLines);
+
+  return parts.join("\n");
+}
+
+// ── GoHighLevel ──────────────────────────────────────────────────────────────
+
 function buildDealTags(data) {
   const tags = ["deal-submission", "website-submission"];
-
-  // Asset class tag
-  const assetTagMap = {
-    sfr: "asset-class-sfr",
-    multifamily: "asset-class-multifamily",
-    mhp: "asset-class-mhp",
-    rv_park: "asset-class-rv-park",
-  };
-  if (assetTagMap[data.propertyType]) tags.push(assetTagMap[data.propertyType]);
-
-  // Submitter role / source tag
-  if (data.submitterRole === "owner") tags.push("deal-source-owner");
-  if (data.submitterRole === "wholesaler") {
-    tags.push("deal-source-wholesaler");
-    tags.push("wholesaler");
+  if (ASSET_TAGS[data.propertyType]) tags.push(ASSET_TAGS[data.propertyType]);
+  switch (data.submitterRole) {
+    case "owner":
+      tags.push("deal-source-owner");
+      break;
+    case "wholesaler":
+      tags.push("deal-source-wholesaler", "wholesaler");
+      break;
+    case "agent":
+      tags.push("commercial-broker");
+      break;
+    case "birddog":
+      tags.push("deal-source-bird-dog");
+      break;
+    default:
+      break;
   }
-  if (data.submitterRole === "agent") tags.push("commercial-broker");
-
+  if (data.smsConsent === true) tags.push("sms-consent");
   return tags;
 }
 
-async function createOrUpdateGHLContact(data, opportunityNoteText) {
-  const contactPayload = {
-    locationId: GHL_LOCATION_ID,
-    firstName: data.firstName || "",
-    lastName: data.lastName || "",
-    email: data.email || "",
-    phone: data.phone || "",
-    source: "Website Deal Submission",
-    tags: buildDealTags(data),
-    customFields: [
-      { key: "preferred_contact_method", field_value: data.preferredContact || "" },
-      { key: "submitter_role", field_value: data.submitterRole || "" },
-      { key: "opportunity_notes", field_value: opportunityNoteText || "" },
-    ],
-  };
-
-  const res = await fetch("https://services.leadconnectorhq.com/contacts/upsert", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${GHL_API_KEY}`,
-      "Content-Type": "application/json",
-      Version: "2021-07-28",
-    },
-    body: JSON.stringify(contactPayload),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`GHL contact upsert failed: ${err}`);
-  }
-
-  const result = await res.json();
-  return result.contact?.id || result.id;
-}
-
-function buildDealNoteText(data) {
-  const assetLabels = { sfr: "Single Family Residential", multifamily: "Multifamily", mhp: "Mobile Home Park", rv_park: "RV Park" };
-  const roleLabels = { owner: "Property Owner", wholesaler: "Wholesaler", agent: "Real Estate Agent", other: "Other" };
-  const submitted = new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" });
-
-  const line = (label, value) => value ? `${label}: ${value}` : null;
-  const section = (title, lines) => [`\n[ ${title} ]`, ...lines.filter(Boolean)].join("\n");
-
-  const noteLines = [
-    `DEAL SUBMISSION — ${(assetLabels[data.propertyType] || data.propertyType).toUpperCase()}`,
-    `Submitted: ${submitted} ET`,
-    section("SUBMITTED BY",
-      [
-        line("Role", roleLabels[data.submitterRole] || data.submitterRole),
-        line("Name", `${data.firstName} ${data.lastName}`),
-        line("Email", data.email),
-        line("Phone", data.phone),
-        line("Preferred Contact", data.preferredContact),
-        data.wholesalerCompany ? line("Company", data.wholesalerCompany) : null,
-      ]
-    ),
-    section("PROPERTY LOCATION",
-      [
-        line("Address", data.propertyAddress),
-        line("City", data.city),
-        line("State", data.state),
-        line("ZIP", data.zip),
-        line("County", data.county),
-      ]
-    ),
-  ];
-
-  // Asset-class-specific details section
-  if (data.propertyType === "sfr") {
-    noteLines.push(section("PROPERTY DETAILS",
-      [
-        line("Bedrooms", data.bedrooms),
-        line("Bathrooms", data.bathrooms),
-        line("Square Footage", data.squareFootage ? `${data.squareFootage} sq ft` : null),
-        line("Year Built", data.yearBuilt),
-        line("Condition", data.condition),
-        line("Occupancy", data.occupancyStatus),
-        line("Utilities On", data.utilitiesOn ? "Yes" : "No"),
-        line("HOA", data.hasHoa ? `Yes — $${data.hoaAmount || "?"}/mo` : "No"),
-        line("Liens / Judgments", data.liensOrJudgments || "None"),
-        line("Seller Motivation", data.motivation),
-      ]
-    ));
-    noteLines.push(section("FINANCIALS",
-      [
-        line("Asking Price", data.askingPrice ? `$${Number(data.askingPrice).toLocaleString()}` : null),
-        line("ARV", data.arv ? `$${Number(data.arv).toLocaleString()}` : null),
-        line("Est. Repairs", data.estimatedRepairs ? `$${Number(data.estimatedRepairs).toLocaleString()}` : null),
-        line("Financing Terms", data.financingTerms),
-      ]
-    ));
-  } else if (data.propertyType === "multifamily") {
-    noteLines.push(section("PROPERTY DETAILS",
-      [
-        line("Total Units", data.unitCount),
-        line("Unit Mix", data.unitMix),
-        line("Square Footage", data.squareFootage ? `${data.squareFootage} sq ft` : null),
-        line("Year Built", data.yearBuilt),
-        line("Condition", data.condition),
-        line("Occupancy Status", data.occupancyStatus),
-        line("Vacancy Rate", data.vacancyRate ? `${data.vacancyRate}%` : null),
-        line("Value-Add Opportunities", data.valueAddOpportunities),
-      ]
-    ));
-    noteLines.push(section("FINANCIALS",
-      [
-        line("Asking Price", data.askingPrice ? `$${Number(data.askingPrice).toLocaleString()}` : null),
-        line("Gross Rents", data.grossRents ? `$${Number(data.grossRents).toLocaleString()}/mo` : null),
-        line("Current NOI", data.currentNoi ? `$${Number(data.currentNoi).toLocaleString()}/yr` : null),
-        line("Financing Terms", data.financingTerms),
-      ]
-    ));
-  } else if (data.propertyType === "mhp") {
-    noteLines.push(section("PROPERTY DETAILS",
-      [
-        line("Total Pads", data.totalPads),
-        line("Occupied Pads", data.occupiedPads),
-        line("Park-Owned Homes", data.parkOwnedHomes),
-        line("Tenant-Owned Homes", data.tenantOwnedHomes),
-        line("Water / Sewer", data.waterSewerType),
-        line("Utilities Billed Back", data.utilitiesBilledBack ? "Yes" : "No"),
-        line("Year Established", data.yearEstablished),
-        line("Condition", data.condition),
-        line("Value-Add Opportunities", data.valueAddOpportunities),
-      ]
-    ));
-    noteLines.push(section("FINANCIALS",
-      [
-        line("Asking Price", data.askingPrice ? `$${Number(data.askingPrice).toLocaleString()}` : null),
-        line("Lot Rent", data.lotRent ? `$${Number(data.lotRent).toLocaleString()}/mo` : null),
-        line("Gross Rents", data.grossRents ? `$${Number(data.grossRents).toLocaleString()}/mo` : null),
-        line("Current NOI", data.currentNoi ? `$${Number(data.currentNoi).toLocaleString()}/yr` : null),
-        line("Financing Terms", data.financingTerms),
-      ]
-    ));
-  } else if (data.propertyType === "rv_park") {
-    noteLines.push(section("PROPERTY DETAILS",
-      [
-        line("Total Pads", data.totalPads),
-        line("Occupied Pads", data.occupiedPads),
-        line("Hookup Types", data.hookupTypes),
-        line("Amenities", data.amenities),
-        line("Year Established", data.yearEstablished),
-        line("Condition", data.condition),
-        line("Value-Add Opportunities", data.valueAddOpportunities),
-      ]
-    ));
-    noteLines.push(section("FINANCIALS",
-      [
-        line("Asking Price", data.askingPrice ? `$${Number(data.askingPrice).toLocaleString()}` : null),
-        line("Nightly Rate", data.nightlyRate ? `$${Number(data.nightlyRate).toLocaleString()}` : null),
-        line("Monthly Rate", data.monthlyRate ? `$${Number(data.monthlyRate).toLocaleString()}` : null),
-        line("Gross Rents", data.grossRents ? `$${Number(data.grossRents).toLocaleString()}/mo` : null),
-        line("Current NOI", data.currentNoi ? `$${Number(data.currentNoi).toLocaleString()}/yr` : null),
-        line("Financing Terms", data.financingTerms),
-      ]
-    ));
-  }
-
-  // Wholesaler/agent deal terms
-  if (data.submitterRole === "wholesaler" || data.submitterRole === "agent") {
-    noteLines.push(section("DEAL TERMS",
-      [
-        line("Assignment Fee", data.assignmentFee ? `$${Number(data.assignmentFee).toLocaleString()}` : null),
-      ]
-    ));
-  }
-
-  // Additional info
-  noteLines.push(section("ADDITIONAL INFO",
-    [
-      line("Notes", data.additionalNotes || "None provided"),
-      line("How They Heard About Josh", data.howHeard),
-      line("Consent Given", data.consent ? "Yes" : "No"),
-    ]
-  ));
-
-  return noteLines.join("\n");
-}
-
-async function createGHLOpportunity(contactId, data, pipeline, noteText) {
-  const address = data.propertyAddress
-    ? `${data.propertyAddress}, ${data.city || ""} ${data.state || ""}`
-    : "Address not provided";
-
-  const opportunityName = `${data.firstName} ${data.lastName} - ${address}`;
-
-  const opportunityPayload = {
-    pipelineId: pipeline.pipelineId,
-    pipelineStageId: pipeline.stageId,
-    locationId: GHL_LOCATION_ID,
-    contactId: contactId,
-    name: opportunityName,
-    status: "open",
-    monetaryValue: parseFloat(data.askingPrice) || 0,
-  };
-
-  const res = await fetch("https://services.leadconnectorhq.com/opportunities/", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${GHL_API_KEY}`,
-      "Content-Type": "application/json",
-      Version: "2021-07-28",
-    },
-    body: JSON.stringify(opportunityPayload),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`GHL opportunity creation failed: ${err}`);
-  }
-
-  const oppResult = await res.json();
-  const opportunityId = oppResult.opportunity?.id || oppResult.id;
-
-  // Add a note with full deal details
-  if (opportunityId) {
-    await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}/notes`, {
+/**
+ * POST to GHL. Returns the parsed body, or null after logging the status and
+ * response when the call fails. The response body never reaches the browser.
+ */
+async function ghlPost(path, payload) {
+  try {
+    const res = await fetch(`${GHL_API}${path}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${GHL_API_KEY}`,
         "Content-Type": "application/json",
         Version: "2021-07-28",
       },
-      body: JSON.stringify({ body: noteText }),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`submit-deal: GHL ${path} returned ${res.status}:`, text.slice(0, 2000));
+      return null;
+    }
+    return await res.json().catch(() => ({}));
+  } catch (err) {
+    console.error(`submit-deal: GHL ${path} failed:`, err instanceof Error ? err.message : err);
+    return null;
   }
-
-  return opportunityId;
 }
 
-async function insertSupabaseRecord(data, table) {
-  // Map form data to table columns
-  const record = {
-    submitter_role: data.submitterRole,
-    first_name: data.firstName,
-    last_name: data.lastName,
+async function upsertContact(data, note) {
+  const result = await ghlPost("/contacts/upsert", {
+    locationId: GHL_LOCATION_ID,
+    firstName: data.firstName || "",
+    lastName: data.lastName || "",
     email: data.email,
     phone: data.phone,
-    preferred_contact: data.preferredContact,
-    is_owner: data.isOwner === true || data.isOwner === "true",
+    source: "Website Deal Submission",
+    tags: buildDealTags(data),
+    customFields: [{ key: "opportunity_notes", field_value: note }],
+  });
+  const id = result && (result.contact?.id || result.id);
+  if (!id) {
+    console.error("submit-deal: GHL upsert returned no contact id");
+    return null;
+  }
+  return id;
+}
+
+async function createOpportunity(contactId, data, pipeline) {
+  const result = await ghlPost("/opportunities/", {
+    pipelineId: pipeline.pipelineId,
+    pipelineStageId: pipeline.stageId,
+    locationId: GHL_LOCATION_ID,
+    contactId,
+    name: `${fullName(data) || data.email} - ${data.propertyAddress}`,
+    status: "open",
+    monetaryValue: toNumber(data.askingPrice) || 0,
+  });
+  return result ? result.opportunity?.id || result.id || null : null;
+}
+
+async function addContactNote(contactId, note) {
+  const result = await ghlPost(`/contacts/${contactId}/notes`, { body: note });
+  return result !== null;
+}
+
+// ── Supabase ─────────────────────────────────────────────────────────────────
+
+// Form keys that have a column of their own (or ride in financing_terms) in
+// each table. Anything else the visitor answered is appended to
+// additional_notes so the row is as complete as the GHL note.
+const COMMON_COLUMN_KEYS = [
+  "propertyType",
+  "submitterRole",
+  "firstName",
+  "lastName",
+  "email",
+  "phone",
+  "preferredContact",
+  "isOwner",
+  "propertyAddress",
+  "condition",
+  "assignmentFee",
+  "additionalNotes",
+  "howHeard",
+  "consent",
+  "askingPrice",
+  ...FINANCING_KEYS,
+];
+
+const TABLE_COLUMN_KEYS = {
+  sfr_deals: ["bedrooms", "bathrooms", "squareFootage", "yearBuilt", "arv", "estimatedRepairs", "occupancyStatus", "motivation"],
+  multifamily_deals: ["unitCount", "squareFootage", "yearBuilt", "currentNoi", "grossRents", "occupancyStatus"],
+  mhp_deals: ["totalPads", "occupiedPads", "parkOwnedHomes", "waterSewerType", "grossRents", "currentNoi", "lotRent"],
+  rv_park_deals: ["totalPads", "siteTypes", "amenities", "grossRents", "currentNoi"],
+};
+
+function buildSupabaseRecord(data, table) {
+  const type = data.propertyType;
+  const financingTerms = linesFor(data, FINANCING_KEYS, type).join("; ");
+
+  const columnKeys = new Set([...COMMON_COLUMN_KEYS, ...(TABLE_COLUMN_KEYS[table] || [])]);
+  const extraKeys = Object.keys(data).filter((k) => !columnKeys.has(k));
+  const extraLines = linesFor(data, extraKeys, type);
+  const additionalNotes = [
+    data.additionalNotes || null,
+    extraLines.length ? ["Other answers from the form:", ...extraLines].join("\n") : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const record = {
+    submitter_role: data.submitterRole || null,
+    first_name: data.firstName || null,
+    last_name: data.lastName || null,
+    email: data.email,
+    phone: data.phone,
+    preferred_contact: data.preferredContact || null,
+    is_owner: typeof data.isOwner === "boolean" ? data.isOwner : null,
     property_address: data.propertyAddress,
-    city: data.city,
-    state: data.state,
-    zip: data.zip,
-    county: data.county,
-    condition: data.condition,
-    financing_terms: data.financingTerms,
-    assignment_fee: data.assignmentFee ? parseFloat(data.assignmentFee) : null,
-    wholesaler_company: data.wholesalerCompany,
-    additional_notes: data.additionalNotes,
-    how_heard: data.howHeard,
-    consent: data.consent === true || data.consent === "true",
-    asking_price: data.askingPrice ? parseFloat(data.askingPrice) : null,
+    condition: data.condition || null,
+    financing_terms: financingTerms || null,
+    assignment_fee: toNumber(data.assignmentFee),
+    additional_notes: additionalNotes || null,
+    how_heard: data.howHeard || null,
+    consent: data.consent === true,
+    asking_price: toNumber(data.askingPrice),
   };
 
-  // Asset-class specific fields
   if (table === "sfr_deals") {
     Object.assign(record, {
-      bedrooms: data.bedrooms ? parseInt(data.bedrooms) : null,
-      bathrooms: data.bathrooms ? parseFloat(data.bathrooms) : null,
-      square_footage: data.squareFootage ? parseInt(data.squareFootage) : null,
-      year_built: data.yearBuilt ? parseInt(data.yearBuilt) : null,
-      arv: data.arv ? parseFloat(data.arv) : null,
-      estimated_repairs: data.estimatedRepairs ? parseFloat(data.estimatedRepairs) : null,
-      occupancy_status: data.occupancyStatus,
-      utilities_on: data.utilitiesOn === true || data.utilitiesOn === "true",
-      has_hoa: data.hasHoa === true || data.hasHoa === "true",
-      hoa_amount: data.hoaAmount ? parseFloat(data.hoaAmount) : null,
-      liens_or_judgments: data.liensOrJudgments,
-      motivation: data.motivation,
+      bedrooms: toInt(data.bedrooms),
+      bathrooms: toNumber(data.bathrooms),
+      square_footage: toInt(data.squareFootage),
+      year_built: toYear(data.yearBuilt),
+      arv: toNumber(data.arv),
+      estimated_repairs: toNumber(data.estimatedRepairs),
+      occupancy_status: data.occupancyStatus || null,
+      motivation: Array.isArray(data.motivation) && data.motivation.length ? data.motivation : null,
     });
   } else if (table === "multifamily_deals") {
     Object.assign(record, {
-      unit_count: data.unitCount ? parseInt(data.unitCount) : null,
-      unit_mix: data.unitMix,
-      square_footage: data.squareFootage ? parseInt(data.squareFootage) : null,
-      year_built: data.yearBuilt ? parseInt(data.yearBuilt) : null,
-      current_noi: data.currentNoi ? parseFloat(data.currentNoi) : null,
-      gross_rents: data.grossRents ? parseFloat(data.grossRents) : null,
-      vacancy_rate: data.vacancyRate ? parseFloat(data.vacancyRate) : null,
-      occupancy_status: data.occupancyStatus,
-      value_add_opportunities: data.valueAddOpportunities,
+      unit_count: toInt(data.unitCount),
+      square_footage: toInt(data.squareFootage),
+      year_built: toYear(data.yearBuilt),
+      current_noi: toNumber(data.currentNoi),
+      gross_rents: toNumber(data.grossRents),
+      occupancy_status: data.occupancyStatus || null,
     });
   } else if (table === "mhp_deals") {
     Object.assign(record, {
-      total_pads: data.totalPads ? parseInt(data.totalPads) : null,
-      occupied_pads: data.occupiedPads ? parseInt(data.occupiedPads) : null,
-      park_owned_homes: data.parkOwnedHomes ? parseInt(data.parkOwnedHomes) : null,
-      tenant_owned_homes: data.tenantOwnedHomes ? parseInt(data.tenantOwnedHomes) : null,
-      water_sewer_type: data.waterSewerType,
-      utilities_billed_back: data.utilitiesBilledBack === true || data.utilitiesBilledBack === "true",
-      gross_rents: data.grossRents ? parseFloat(data.grossRents) : null,
-      current_noi: data.currentNoi ? parseFloat(data.currentNoi) : null,
-      lot_rent: data.lotRent ? parseFloat(data.lotRent) : null,
-      year_established: data.yearEstablished ? parseInt(data.yearEstablished) : null,
-      value_add_opportunities: data.valueAddOpportunities,
+      total_pads: toInt(data.totalPads),
+      occupied_pads: toCount(data.occupiedPads),
+      park_owned_homes: toInt(data.parkOwnedHomes),
+      water_sewer_type: data.waterSewerType || null,
+      gross_rents: toNumber(data.grossRents),
+      current_noi: toNumber(data.currentNoi),
+      lot_rent: toNumber(data.lotRent),
     });
   } else if (table === "rv_park_deals") {
     Object.assign(record, {
-      total_pads: data.totalPads ? parseInt(data.totalPads) : null,
-      occupied_pads: data.occupiedPads ? parseInt(data.occupiedPads) : null,
-      hookup_types: data.hookupTypes,
-      amenities: data.amenities,
-      gross_rents: data.grossRents ? parseFloat(data.grossRents) : null,
-      current_noi: data.currentNoi ? parseFloat(data.currentNoi) : null,
-      nightly_rate: data.nightlyRate ? parseFloat(data.nightlyRate) : null,
-      monthly_rate: data.monthlyRate ? parseFloat(data.monthlyRate) : null,
-      year_established: data.yearEstablished ? parseInt(data.yearEstablished) : null,
-      value_add_opportunities: data.valueAddOpportunities,
+      total_pads: toInt(data.totalPads),
+      hookup_types: Array.isArray(data.siteTypes) && data.siteTypes.length ? data.siteTypes : null,
+      amenities: Array.isArray(data.amenities) && data.amenities.length ? data.amenities : null,
+      gross_rents: toNumber(data.grossRents),
+      current_noi: toNumber(data.currentNoi),
     });
   }
 
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify(record),
-  });
+  return record;
+}
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Supabase insert failed (${table}): ${err}`);
+async function insertSupabaseRecord(data, table) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("submit-deal: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set; row skipped");
+    return false;
   }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(buildSupabaseRecord(data, table)),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`submit-deal: Supabase insert into ${table} returned ${res.status}:`, text.slice(0, 2000));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error(`submit-deal: Supabase insert into ${table} failed:`, err instanceof Error ? err.message : err);
+    return false;
+  }
+}
 
-  const result = await res.json();
-  return result[0]?.id;
+// ── Handler ──────────────────────────────────────────────────────────────────
+
+function parseBody(req) {
+  const body = req.body;
+  if (body && typeof body === "object" && !Array.isArray(body)) return body;
+  if (typeof body === "string") {
+    try {
+      const parsed = JSON.parse(body);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function validate(data) {
+  const problems = [];
+  if (!PROPERTY_TYPES.includes(data.propertyType)) problems.push("Choose a property type.");
+  if (!data.firstName) problems.push("Enter your name.");
+  if (!EMAIL_RE.test(data.email || "")) problems.push("Enter a valid email address.");
+  if (digitsOf(data.phone).length < 10) problems.push("Enter a phone number with at least 10 digits.");
+  if (!data.propertyAddress) problems.push("Enter the property address.");
+  if (data.consent !== true) problems.push("Confirm the information is accurate.");
+  return problems;
 }
 
 export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
   if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const data = req.body;
+    const body = parseBody(req);
 
-    // Validate required fields
-    if (!data.propertyType || !data.email) {
-      return res.status(400).json({ error: "Missing required fields: propertyType, email" });
+    if (looksLikeBot(body)) {
+      console.warn("submit-deal: honeypot tripped, submission dropped");
+      return res.status(200).json({ success: true });
     }
 
-    const propertyType = data.propertyType; // sfr | multifamily | mhp | rv_park
-    const pipeline = GHL_PIPELINES[propertyType];
-    const table = SUPABASE_TABLES[propertyType];
-
-    if (!pipeline || !table) {
-      return res.status(400).json({ error: `Unknown property type: ${propertyType}` });
+    const data = sanitize(body);
+    const problems = validate(data);
+    if (problems.length) {
+      return res.status(400).json({ error: problems.join(" ") });
     }
 
-    const results = { ghl: null, supabase: null, errors: [] };
-
-    // 1. Create/update GHL contact and opportunity
-    try {
-      // Build the note text once so it can be written to both the custom field AND the opportunity note
-      const noteText = buildDealNoteText(data);
-      const contactId = await createOrUpdateGHLContact(data, noteText);
-      const opportunityId = await createGHLOpportunity(contactId, data, pipeline, noteText);
-      results.ghl = { contactId, opportunityId, pipeline: pipeline.name };
-    } catch (err) {
-      console.error("GHL error:", err.message);
-      results.errors.push(`GHL: ${err.message}`);
+    if (!GHL_API_KEY || !GHL_LOCATION_ID) {
+      console.error("submit-deal: GHL_API_KEY or GHL_LOCATION_ID is not set");
+      return res.status(502).json({ error: "Your submission could not be saved right now. Please try again in a minute." });
     }
 
-    // 2. Insert full record into Supabase
-    try {
-      const recordId = await insertSupabaseRecord(data, table);
-      results.supabase = { recordId, table };
-    } catch (err) {
-      console.error("Supabase error:", err.message);
-      results.errors.push(`Supabase: ${err.message}`);
+    const type = data.propertyType;
+    const pipeline = GHL_PIPELINES[type];
+    const table = SUPABASE_TABLES[type];
+    const note = buildNote(data);
+
+    // 1. The contact. This is the write that must land.
+    const contactId = await upsertContact(data, note);
+    if (!contactId) {
+      return res.status(502).json({
+        error: "Your submission could not be saved right now. Please try again in a minute, or reach out through the contact page.",
+      });
     }
 
-    // Return success even if one destination had an error (partial success)
-    const statusCode = results.errors.length === 2 ? 500 : 200;
-    return res.status(statusCode).json({
-      success: results.errors.length < 2,
-      message:
-        results.errors.length === 0
-          ? "Deal submitted successfully to all destinations."
-          : `Deal submitted with some issues: ${results.errors.join("; ")}`,
-      results,
+    // 2. Opportunity, note, Supabase row and the email. Each logs its own
+    //    failure and none of them can turn the response into an error.
+    const opportunityId = await createOpportunity(contactId, data, pipeline);
+    if (!opportunityId) console.error(`submit-deal: no opportunity created in ${pipeline.name} for contact ${contactId}`);
+
+    const noted = await addContactNote(contactId, note);
+    if (!noted) console.error(`submit-deal: note not written for contact ${contactId}`);
+
+    await insertSupabaseRecord(data, table);
+
+    await notifyJosh({
+      subject: `Website deal: ${TYPE_LABELS[type]} at ${data.propertyAddress}`,
+      text: note,
+      replyTo: data.email,
     });
+
+    return res.status(200).json({ success: true, message: "Deal received." });
   } catch (err) {
-    console.error("Unexpected error:", err);
-    return res.status(500).json({ error: "Internal server error", details: err.message });
+    console.error("submit-deal: unexpected error:", err instanceof Error ? err.stack || err.message : err);
+    return res.status(500).json({ error: "Something went wrong on our end. Please try again." });
   }
 }

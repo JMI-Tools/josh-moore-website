@@ -1,332 +1,264 @@
 import { Link } from "wouter";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Building,
+  Building2,
+  Check,
+  Factory,
+  Home as HomeIcon,
+  Tent,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Home as HomeIcon, Building, Tent, Factory, ArrowRight, CheckCircle2 } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { trpc } from "@/lib/trpc";
+import { CtaBand, Reveal, Section, SectionHeading, SiteLayout } from "@/components/site";
 import { useRouteSeo } from "@/hooks/useSeo";
+
+const assetClasses = [
+  {
+    icon: HomeIcon,
+    title: "Single family",
+    description: "2+ bed, 1+ bath houses across West Michigan. Any condition, cash or terms.",
+  },
+  {
+    icon: Building2,
+    title: "Multifamily",
+    description: "2 to 4 unit residential properties. Tired landlords welcome.",
+  },
+  {
+    icon: Building,
+    title: "Commercial multifamily",
+    description: "5 to 50 units with room to raise rents or fix operations.",
+  },
+  {
+    icon: Tent,
+    title: "RV parks",
+    description: "Campgrounds and RV communities at a 10% cap rate or better.",
+  },
+  {
+    icon: Factory,
+    title: "Mobile home parks",
+    description: "Manufactured housing communities at an 8% cap rate or better.",
+  },
+];
+
+const benefits = [
+  "Creative finance structures that actually close",
+  "Fast closings with terms built around your situation",
+  "Every deal has to work for everyone at the table",
+  "Active buyer with a track record in Michigan",
+];
+
+const reasons = [
+  {
+    title: "Creative solutions",
+    description:
+      "Seller financing, subject-to, lease options, wraps. When the bank says no, there is usually still a way to make the deal work, and I know how to build it.",
+  },
+  {
+    title: "Fast and flexible",
+    description:
+      "No cookie-cutter offers. I look at what you actually need, whether that is speed, price, a clean exit or time, and I build the terms around it.",
+  },
+];
 
 export default function Home() {
   useRouteSeo("/");
 
-  const { data: settings } = trpc.admin.getSettings.useQuery();
-  const showEvents = settings?.events_section_visible === "true";
-
-  const assetClasses = [
-    {
-      icon: HomeIcon,
-      title: "Single Family",
-      description: "2+ bed, 1+ bath properties in West Michigan markets",
-      gradient: "from-primary/20 to-primary/5",
-    },
-    {
-      icon: Building2,
-      title: "Multifamily",
-      description: "2-4 unit residential properties, any condition considered",
-      gradient: "from-blue-500/20 to-blue-500/5",
-    },
-    {
-      icon: Building,
-      title: "Commercial MF",
-      description: "5-20 units with value-add opportunities",
-      gradient: "from-primary/20 to-primary/5",
-    },
-    {
-      icon: Tent,
-      title: "RV Parks",
-      description: "10%+ cap rate campgrounds and RV communities",
-      gradient: "from-blue-500/20 to-blue-500/5",
-    },
-    {
-      icon: Factory,
-      title: "Mobile Home Parks",
-      description: "8%+ cap rate manufactured housing communities",
-      gradient: "from-primary/20 to-primary/5",
-    },
-  ];
-
-  const benefits = [
-    "Creative finance solutions that work",
-    "Fast closings with flexible terms",
-    "Win-win deals for all parties",
-    "Proven track record in Michigan",
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-white via-blue-50/30 to-white">
-      <Header />
-      
-      <main className="flex-1">
-        {/* Hero Section - Advanced Design */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-secondary via-secondary/95 to-primary/90 text-white">
-          {/* Animated Background Pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-96 h-96 bg-primary rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000"></div>
-          </div>
-
-          {/* Geometric Shapes */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-20 right-10 w-32 h-32 border-4 border-primary/30 rotate-45 animate-spin-slow"></div>
-            <div className="absolute bottom-40 left-20 w-24 h-24 border-4 border-blue-400/30 rounded-full animate-bounce-slow"></div>
-          </div>
-
-          <div className="container relative z-10 py-20 md:py-32">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              {/* Left Content */}
-              <div className="space-y-8 animate-fade-in">
-                <div className="inline-block">
-                  <span className="px-4 py-2 bg-primary/20 backdrop-blur-sm rounded-full text-sm font-semibold border border-primary/30">
-                    Michigan's Creative Finance Expert
-                  </span>
-                </div>
-                
-                <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
-                  Creative Finance Solutions for{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-100">
-                    Impossible
-                  </span>{" "}
-                  Real Estate Deals
-                </h1>
-                
-                <p className="text-xl md:text-2xl text-blue-100 leading-relaxed">
-                  I'm Josh Moore, a creative real estate investor in Michigan. I use creative finance to provide solutions for homeowners and investors on both residential and commercial scales, turning seemingly impossible deals into win-win opportunities.
-                </p>
-
-                {/* Benefits List */}
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {benefits.map((benefit, idx) => (
-                    <div key={idx} className="flex items-center gap-3 group">
-                      <CheckCircle2 className="h-6 w-6 text-blue-300 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                      <span className="text-lg">{benefit}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap gap-4 pt-4">
-                  <Link href="/submit-deal">
-                    <Button size="lg" className="bg-white text-secondary hover:bg-blue-50 text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
-                      Submit a Deal
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  </Link>
-                  <Link href="/buy-box">
-                    <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 text-lg px-8 py-6 backdrop-blur-sm">
-                      View My Buy Box
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Right Image - Full Body Visible */}
-              <div className="relative lg:h-[600px] flex items-end justify-center">
-                <div className="absolute inset-0 bg-gradient-to-t from-secondary via-transparent to-transparent z-10"></div>
-                <img 
-                  src="/josh-photo.png" 
-                  alt="Josh Moore" 
-                  className="relative z-0 h-full w-auto object-contain object-bottom drop-shadow-2xl animate-fade-in-up"
-                />
-                {/* Accent Circle Behind Photo */}
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-t from-primary/30 to-transparent rounded-full blur-3xl -z-10"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Wave Divider */}
-          <div className="absolute bottom-0 left-0 right-0">
-            <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto">
-              <path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z" fill="rgb(248, 250, 252)"/>
-            </svg>
-          </div>
-        </section>
-
-        <section className="bg-white border-b border-slate-200">
-          <div className="container py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-            <div><p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">The story behind the deals</p><p className="text-lg font-medium">Sales. Music. Sneakers. And a promise that changed everything.</p></div>
-            <a href="/mediakit" className="inline-flex items-center gap-3 text-sm font-semibold text-secondary shrink-0">See my story & press kit <ArrowRight className="h-4 w-4" /></a>
-          </div>
-        </section>
-
-        {/* Asset Classes Section */}
-        <section className="py-20 relative">
-          <div className="container space-y-12">
-            <div className="text-center space-y-4 max-w-3xl mx-auto">
-              <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
-                Investment Criteria Across 5 Asset Classes
-              </h2>
-              <p className="text-xl text-muted-foreground">
-                I'm actively acquiring properties in these categories with creative financing solutions
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {assetClasses.map((asset, idx) => {
-                const Icon = asset.icon;
-                return (
-                  <Card 
-                    key={idx} 
-                    className="group hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-primary/50 overflow-hidden relative"
-                  >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${asset.gradient} opacity-0 group-hover:opacity-100 transition-opacity`}></div>
-                    <CardHeader className="relative z-10">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-gradient-to-br from-primary to-blue-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                          <Icon className="h-8 w-8 text-white" />
-                        </div>
-                        <CardTitle className="text-2xl">{asset.title}</CardTitle>
-                      </div>
-                      <CardDescription className="text-base pt-2">{asset.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="relative z-10">
-                      <Button asChild variant="ghost" className="w-full group-hover:bg-primary group-hover:text-white transition-colors">
-                        <Link href="/buy-box">
-                          View Criteria
-                          <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                        </Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* Why Work With Me Section */}
-        <section className="py-20 bg-gradient-to-br from-secondary/5 via-primary/5 to-blue-50/50 relative overflow-hidden">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234D92D0' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}></div>
-          </div>
-
-          <div className="container relative z-10 space-y-12">
-            <div className="text-center space-y-4 max-w-3xl mx-auto">
-              <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
-                Why Work With Me?
-              </h2>
-              <p className="text-xl text-muted-foreground">
-                Experience, creativity, and a commitment to win-win solutions
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {[
-                {
-                  title: "Creative Solutions",
-                  description: "I specialize in finding creative financing options that traditional buyers can't offer, making deals work when others say no.",
-                  icon: "\u{1F4A1}",
-                },
-                {
-                  title: "Fast & Flexible",
-                  description: "Quick closings with flexible terms tailored to your situation. No cookie-cutter approaches. Every deal is unique.",
-                  icon: "\u26A1",
-                },
-              ].map((item, idx) => (
-                <div 
-                  key={idx} 
-                  className="text-center space-y-4 p-8 bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all hover:-translate-y-2 border-2 border-transparent hover:border-primary/30"
-                >
-                  <div className="text-5xl">{item.icon}</div>
-                  <h3 className="text-2xl font-bold">{item.title}</h3>
-                  <p className="text-muted-foreground leading-relaxed">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Events Section (Conditional) */}
-        {showEvents && (
-          <section className="py-20">
-            <div className="container space-y-12">
-              <div className="text-center space-y-4 max-w-3xl mx-auto">
-                <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">
-                  Upcoming Events
-                </h2>
-                <p className="text-xl text-muted-foreground">
-                  Join me at these upcoming events and workshops
-                </p>
-              </div>
-
-              <div className="max-w-4xl mx-auto bg-gradient-to-br from-primary/10 to-blue-50 rounded-2xl p-12 text-center border-2 border-primary/20">
-                <p className="text-lg text-muted-foreground">
-                  Events coming soon. Check back or follow on social media for updates.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* CTA Section */}
-        <section className="py-20 bg-gradient-to-br from-secondary via-primary to-secondary text-white relative overflow-hidden">
-          {/* Animated Background */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000"></div>
-          </div>
-
-          <div className="container relative z-10 text-center space-y-8 max-w-4xl mx-auto">
-            <h2 className="text-4xl md:text-5xl font-bold">
-              Ready to Make Your Deal Happen?
-            </h2>
-            <p className="text-xl md:text-2xl text-blue-100">
-              Whether you're a homeowner looking for a creative solution or an investor with a property to sell, let's explore how we can work together.
+    <SiteLayout>
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-navy text-white glow-brand">
+        <div className="container relative grid items-end gap-10 py-16 md:py-24 lg:grid-cols-[1.15fr_0.85fr] lg:gap-8 lg:py-0">
+          <Reveal className="relative z-10 max-w-2xl lg:py-28">
+            <span className="eyebrow eyebrow-line mb-6 text-brand-100">
+              West Michigan creative finance
+            </span>
+            <h1 className="display-xl">
+              Creative finance solutions for{" "}
+              <span className="text-brand">impossible</span> real estate deals.
+            </h1>
+            <p className="mt-7 max-w-xl text-lg leading-relaxed text-white/78 md:text-xl">
+              I'm Josh Moore, a real estate investor in Michigan. I use creative
+              finance to solve problems for homeowners and investors, on houses
+              and on commercial property, and turn deals that look impossible
+              into wins for everyone involved.
             </p>
-            <div className="flex flex-wrap gap-4 justify-center pt-4">
-              <Link href="/submit-deal">
-                <Button size="lg" className="bg-white text-secondary hover:bg-blue-50 text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
-                  Submit Your Deal
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/contact">
-                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 text-lg px-8 py-6 backdrop-blur-sm">
-                  Schedule a Call
-                </Button>
+
+            <ul className="mt-9 grid gap-3 sm:grid-cols-2">
+              {benefits.map((b) => (
+                <li key={b} className="flex items-start gap-3 text-[15px] leading-snug text-white/90">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/25 text-brand-100">
+                    <Check className="size-3.5" strokeWidth={3} />
+                  </span>
+                  {b}
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-10 flex flex-wrap gap-3">
+              <Button asChild variant="light" size="lg">
+                <Link href="/submit-deal">
+                  Submit a deal
+                  <ArrowRight />
+                </Link>
+              </Button>
+              <Button asChild variant="outline-light" size="lg">
+                <Link href="/buy-box">View my buy box</Link>
+              </Button>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.15} className="relative flex items-end justify-center self-end lg:h-[620px]">
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-6 bottom-0 top-10 rounded-[2.5rem] bg-gradient-to-b from-brand/30 via-brand/10 to-transparent blur-2xl"
+            />
+            <img
+              src="/josh-photo-900.webp"
+              alt="Josh Moore"
+              width={900}
+              height={900}
+              fetchPriority="high"
+              className="relative z-10 max-h-[440px] w-auto object-contain object-bottom drop-shadow-[0_30px_50px_rgba(0,0,0,0.45)] sm:max-h-[520px] lg:max-h-[600px]"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 z-20 h-28 bg-gradient-to-t from-navy to-transparent"
+            />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Story strip */}
+      <section className="border-b border-line bg-paper">
+        <div className="container flex flex-col gap-4 py-7 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="eyebrow mb-1.5">The story behind the deals</p>
+            <p className="font-display text-xl font-semibold tracking-tight text-navy md:text-2xl">
+              Sales. Music. Sneakers. And a promise that changed everything.
+            </p>
+          </div>
+          <Link
+            href="/mediakit"
+            className="inline-flex shrink-0 items-center gap-2 text-[15px] font-semibold text-navy underline-offset-4 hover:text-brand-600 hover:underline"
+          >
+            See my story and press kit
+            <ArrowUpRight className="size-4" />
+          </Link>
+        </div>
+      </section>
+
+      {/* Buy box */}
+      <Section tone="white">
+        <Reveal>
+          <SectionHeading
+            eyebrow="What I'm buying"
+            title="Five asset classes. One way of working."
+            lede="I'm actively acquiring in each of these categories, almost always with creative financing. Here is the short version. The full criteria are on the buy box page."
+          />
+        </Reveal>
+        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {assetClasses.map((asset, i) => {
+            const Icon = asset.icon;
+            return (
+              <Reveal key={asset.title} delay={0.05 * i}>
+                <Link
+                  href="/buy-box"
+                  className="surface surface-hover group flex h-full flex-col p-7"
+                >
+                  <span className="flex size-12 items-center justify-center rounded-2xl bg-navy text-white">
+                    <Icon className="size-6" strokeWidth={1.75} />
+                  </span>
+                  <h3 className="mt-6 text-2xl">{asset.title}</h3>
+                  <p className="mt-2.5 flex-1 text-[15px] leading-relaxed text-ink-soft">
+                    {asset.description}
+                  </p>
+                  <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-brand-600">
+                    View criteria
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </Link>
+              </Reveal>
+            );
+          })}
+          <Reveal delay={0.25}>
+            <Link
+              href="/submit-deal"
+              className="group flex h-full flex-col justify-between rounded-[1.25rem] bg-navy p-7 text-white transition-transform hover:-translate-y-[3px]"
+            >
+              <div>
+                <p className="eyebrow text-brand-100">Not sure where it fits?</p>
+                <h3 className="mt-4 text-2xl">Send it anyway.</h3>
+                <p className="mt-2.5 text-[15px] leading-relaxed text-white/75">
+                  If it's real estate and the numbers are honest, I will take a look and tell you straight.
+                </p>
+              </div>
+              <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-white">
+                Submit a deal
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+              </span>
+            </Link>
+          </Reveal>
+        </div>
+      </Section>
+
+      {/* Why work with me */}
+      <Section tone="paper" className="dots-paper">
+        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+          <Reveal className="relative">
+            <div className="overflow-hidden rounded-[2rem] shadow-lift">
+              <img
+                src="/media-kit/assets/josh-moore-outdoor-fence.jpg"
+                alt="Josh Moore on the Lake Michigan shoreline"
+                width={960}
+                height={1280}
+                loading="lazy"
+                className="aspect-[4/5] w-full object-cover object-[50%_20%]"
+              />
+            </div>
+            <div className="absolute -bottom-5 -right-3 hidden max-w-[240px] rounded-2xl bg-white p-5 shadow-lift sm:block lg:-right-8">
+              <p className="font-display text-lg font-semibold leading-tight text-navy">
+                Built from a couch, a one year old, and a promise.
+              </p>
+              <Link href="/mediakit" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-600">
+                Read the story <ArrowUpRight className="size-3.5" />
               </Link>
             </div>
-          </div>
-        </section>
-      </main>
+          </Reveal>
 
-      <Footer />
+          <Reveal delay={0.1}>
+            <SectionHeading
+              eyebrow="Why work with me"
+              title="Experience, creativity, and deals that work for everyone."
+              lede="I'm not an agent and I'm not a bank. I'm the buyer, and I structure every deal myself."
+            />
+            <ul className="mt-10 space-y-8">
+              {reasons.map((r) => (
+                <li key={r.title} className="flex gap-5">
+                  <span className="mt-1 h-px w-8 shrink-0 bg-brand" aria-hidden="true" />
+                  <div>
+                    <h3 className="text-xl">{r.title}</h3>
+                    <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{r.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <Button asChild>
+                <Link href="/about">
+                  More about me
+                  <ArrowRight />
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/collaborate">Work with me</Link>
+              </Button>
+            </div>
+          </Reveal>
+        </div>
+      </Section>
 
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(40px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes bounce-slow {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-20px); }
-        }
-        .animate-fade-in {
-          animation: fade-in 1s ease-out;
-        }
-        .animate-fade-in-up {
-          animation: fade-in-up 1.2s ease-out;
-        }
-        .animate-spin-slow {
-          animation: spin-slow 20s linear infinite;
-        }
-        .animate-bounce-slow {
-          animation: bounce-slow 3s ease-in-out infinite;
-        }
-        .delay-1000 {
-          animation-delay: 1s;
-        }
-      `}</style>
-    </div>
+      <CtaBand />
+    </SiteLayout>
   );
 }
