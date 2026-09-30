@@ -319,8 +319,8 @@ export default function MediaKit() {
         <section id="press" className="mk-section mk-shell">
           <div className="mk-section-heading">
             <div>
-              <span className="mk-eyebrow">04 / In print</span>
-              <h2>Press & recognition.</h2>
+              <span className="mk-eyebrow">04 / In the media</span>
+              <h2>Interviews, press & recognition.</h2>
             </div>
           </div>
           <div className="mk-press-list">

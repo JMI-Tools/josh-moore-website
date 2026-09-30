@@ -83,6 +83,12 @@ export const pressLinks = [
     href: "https://mensinsider.com/how-west-michigan-investor-josh-moore-stopped-trying-to-do-it-all-himself/",
   },
   {
+    publication: "Real Estate Pros Show | Investor Fuel",
+    type: "Podcast interview · September 29, 2026",
+    title: "How to Find Real Estate Deals for Free Using Facebook Marketplace and Direct Sellers",
+    href: "https://if-audio.libsyn.com/how-to-find-real-estate-deals-for-free-using-facebook-marketplace-and-direct-sellers",
+  },
+  {
     publication: "Best of Best Review",
     type: "Award announcement · 2026",
     title: "Best Seller Finance Strategist in West Michigan",
