@@ -75,18 +75,21 @@ export const shortBio =
 export const fullBio =
   "Josh Moore is a full-time real estate investor based in West Michigan, focused on creative finance and finding workable paths through complicated property deals. His entrepreneurial story began in door-to-door sales and moved through music, rare sneakers, and software. Known in music as Zipps McGee, he placed a full-page advertisement in the 2017 XXL Freshman issue, toured the United States with Project Pat from Three 6 Mafia, and organized his own small tour run in Japan through his own marketing, branding, and management. He then started a software company, landed its first major development client, and signed a deal with a huge six-figure backend. When that client ran out of money, the company began to unravel while his partner was seven months pregnant with their first daughter. As a stay-at-home dad, he turned his attention to real estate and made a promise to his partner: help carry the family while he built, and he would work toward giving her the choice to leave her job. The first closing became the foundation for his investing business. Today, Moore is a Six-Figure Creative Campus Award recipient and was named Best Seller Finance Strategist in West Michigan of 2026 by Best of Best Review. He also serves on the board of Addison North, where he helped create a free financial education and leadership curriculum for underserved communities.";
 
+export const podcastLinks = [
+  {
+    publication: "Real Estate Pros",
+    type: "Podcast interview · September 29, 2026",
+    title: "How to Find Real Estate Deals for Free Using Facebook Marketplace and Direct Sellers",
+    href: "https://www.youtube.com/watch?v=Ixg2tcdQ3nA",
+  },
+];
+
 export const pressLinks = [
   {
     publication: "Men’s Insider",
     type: "Branded contributor feature · 2026",
     title: "How West Michigan Investor Josh Moore Stopped Trying to Do It All Himself",
     href: "https://mensinsider.com/how-west-michigan-investor-josh-moore-stopped-trying-to-do-it-all-himself/",
-  },
-  {
-    publication: "Real Estate Pros Show | Investor Fuel",
-    type: "Podcast interview · September 29, 2026",
-    title: "How to Find Real Estate Deals for Free Using Facebook Marketplace and Direct Sellers",
-    href: "https://if-audio.libsyn.com/how-to-find-real-estate-deals-for-free-using-facebook-marketplace-and-direct-sellers",
   },
   {
     publication: "Best of Best Review",

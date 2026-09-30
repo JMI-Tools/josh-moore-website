@@ -14,6 +14,7 @@ import {
   fullBio,
   MEDIA_EMAIL,
   pressLinks,
+  podcastLinks,
   shortBio,
 } from "@/content/media-kit";
 import Footer from "@/components/Footer";
@@ -124,6 +125,7 @@ export default function MediaKit() {
             <a href="#bio">Bio</a>
             <a href="#recognition">Recognition</a>
             <a href="#community">Community</a>
+            <a href="#podcasts">Podcasts</a>
             <a href="#press">Press</a>
             <a href="#assets">Photos & contact</a>
           </nav>
@@ -316,11 +318,37 @@ export default function MediaKit() {
           </div>
         </section>
 
+        <section id="podcasts" className="mk-section mk-shell">
+          <div className="mk-section-heading">
+            <div>
+              <span className="mk-eyebrow">Podcasts / Watch the conversation</span>
+              <h2>Podcast appearances.</h2>
+            </div>
+          </div>
+          <div className="mk-press-list">
+            {podcastLinks.map((item) => (
+              <a
+                key={item.publication}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <div className="mk-publication">
+                  {item.publication}
+                  <small>{item.type}</small>
+                </div>
+                <h3>{item.title}</h3>
+                <ArrowUpRight size={22} aria-label="Watch episode on YouTube" />
+              </a>
+            ))}
+          </div>
+        </section>
+
         <section id="press" className="mk-section mk-shell">
           <div className="mk-section-heading">
             <div>
               <span className="mk-eyebrow">04 / In the media</span>
-              <h2>Interviews, press & recognition.</h2>
+              <h2>Press & recognition.</h2>
             </div>
           </div>
           <div className="mk-press-list">
