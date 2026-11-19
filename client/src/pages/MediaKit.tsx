@@ -203,7 +203,7 @@ export default function MediaKit() {
             <div className="mk-milestones">
               <a
                 className="mk-milestone"
-                href={pressLinks[0].href}
+                href={pressLinks.find((item) => item.publication === "Best of Best Review")?.href}
                 target="_blank"
                 rel="noreferrer"
               >

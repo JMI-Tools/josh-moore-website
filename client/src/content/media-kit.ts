@@ -86,6 +86,12 @@ export const podcastLinks = [
 
 export const pressLinks = [
   {
+    publication: "Morning Brew’s The Playbook",
+    type: "Editorial feature · November 18, 2026",
+    title: "Michigan real estate is overdue for an image rehab",
+    href: "https://www.theplaybookmb.com/stories/michigan-real-estate-investment",
+  },
+  {
     publication: "Men’s Insider",
     type: "Branded contributor feature · 2026",
     title: "How West Michigan Investor Josh Moore Stopped Trying to Do It All Himself",
