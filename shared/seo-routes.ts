@@ -106,6 +106,76 @@ export const SITE_ROUTES = [
     priority: "0.8",
   },
   {
+    path: "/tools",
+    file: "tools.html",
+    title: "Free Real Estate Calculators | Josh Moore",
+    description:
+      "Free calculators for house hacking, max offers, cash-on-cash returns, rehab budgets, DSCR and what you already have to work with. Nothing you type is saved.",
+    lastmod: "2026-11-23",
+    changefreq: "monthly",
+    priority: "0.8",
+  },
+  {
+    path: "/house-hack-calculator",
+    file: "house-hack-calculator.html",
+    title: "House Hack Calculator | Josh Moore",
+    description:
+      "See what a house hack really costs you to live in once the rent comes in, with reserves and three stress tests from the Live In, Rent Smart guide.",
+    lastmod: "2026-11-23",
+    changefreq: "monthly",
+    priority: "0.8",
+  },
+  {
+    path: "/mao-calculator",
+    file: "mao-calculator.html",
+    title: "Max Offer (MAO) Calculator for Flips and Rentals | Josh Moore",
+    description:
+      "Work back from the after-repair value to the most you can pay for a flip or a rental you plan to refinance, with closing, holding and loan costs counted.",
+    lastmod: "2026-11-23",
+    changefreq: "monthly",
+    priority: "0.8",
+  },
+  {
+    path: "/did-you-really-win",
+    file: "did-you-really-win.html",
+    title: "Did You Really Win? Cash-on-Cash Calculator | Josh Moore",
+    description:
+      "Put what a deal made next to the money it took and the months it took it, and compare two deals side by side.",
+    lastmod: "2026-11-23",
+    changefreq: "monthly",
+    priority: "0.7",
+  },
+  {
+    path: "/rehab-estimator",
+    file: "rehab-estimator.html",
+    title: "Rehab Cost Estimator | Josh Moore",
+    description:
+      "Build a line-by-line rehab budget from 2026 national cost ranges, with quantities from the house and a contingency. Replace any number with your own quotes.",
+    lastmod: "2026-11-23",
+    changefreq: "monthly",
+    priority: "0.7",
+  },
+  {
+    path: "/dscr-calculator",
+    file: "dscr-calculator.html",
+    title: "DSCR Calculator for Rental Loans | Josh Moore",
+    description:
+      "Check whether a rental's rent covers its payment, taxes, insurance and HOA, the rent it takes to reach 1.25 and the largest loan the rent supports.",
+    lastmod: "2026-11-23",
+    changefreq: "monthly",
+    priority: "0.7",
+  },
+  {
+    path: "/what-you-are-sitting-on",
+    file: "what-you-are-sitting-on.html",
+    title: "What Are You Sitting On? | Josh Moore",
+    description:
+      "Count the home equity, cash, retirement money, credit, people and time you already have. A count, not advice, and nothing you enter leaves your browser.",
+    lastmod: "2026-11-23",
+    changefreq: "monthly",
+    priority: "0.7",
+  },
+  {
     path: "/collaborate",
     file: "collaborate.html",
     title: "Collaborate with Josh Moore",

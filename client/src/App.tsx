@@ -17,6 +17,13 @@ import Collaborate from "./pages/Collaborate";
 import HouseHackingGuide from "./pages/HouseHackingGuide";
 import Contractors from "./pages/Contractors";
 import MediaKit from "./pages/MediaKit";
+import ToolsHub from "./pages/tools/ToolsHub";
+import HouseHackCalculator from "./pages/tools/HouseHackCalculator";
+import MaoCalculator from "./pages/tools/MaoCalculator";
+import DidYouReallyWin from "./pages/tools/DidYouReallyWin";
+import RehabEstimator from "./pages/tools/RehabEstimator";
+import DscrCalculator from "./pages/tools/DscrCalculator";
+import SittingOn from "./pages/tools/SittingOn";
 
 /**
  * The route LIST lives in shared/seo-routes.ts. It is the single source of truth for
@@ -42,6 +49,13 @@ const PAGES: Record<RoutePath, ComponentType> = {
   "/contractors": Contractors,
   "/mediakit": MediaKit,
   "/househackingguide": HouseHackingGuide,
+  "/tools": ToolsHub,
+  "/house-hack-calculator": HouseHackCalculator,
+  "/mao-calculator": MaoCalculator,
+  "/did-you-really-win": DidYouReallyWin,
+  "/rehab-estimator": RehabEstimator,
+  "/dscr-calculator": DscrCalculator,
+  "/what-you-are-sitting-on": SittingOn,
 };
 
 function Router() {

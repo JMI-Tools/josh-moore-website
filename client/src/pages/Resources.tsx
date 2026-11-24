@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CtaBand, PageHero, Reveal, Section, SectionHeading, SiteLayout } from "@/components/site";
+import { ToolCard } from "@/components/tools/ToolKit";
+import { TOOLS } from "@/components/tools/toolList";
 import { useRouteSeo } from "@/hooks/useSeo";
 
 type Resource = {
@@ -140,6 +142,27 @@ export default function Resources() {
         title="Tools and services I actually use."
         lede="The insurance, training and software I point people to when they ask. Some of these are referral links, so I may get a credit or a commission if you sign up through them."
       />
+
+      {/* Free calculators */}
+      <Section tone="navy">
+        <Reveal>
+          <SectionHeading
+            tone="dark"
+            eyebrow="Free tools"
+            title="Free calculators"
+            lede="House hacking, max offers, cash-on-cash, rehab budgets, DSCR and what you already have to work with."
+          />
+        </Reveal>
+        <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {TOOLS.map((tool, i) => (
+            <li key={tool.path} className="h-full">
+              <Reveal delay={0.05 * i} className="h-full">
+                <ToolCard tool={tool} />
+              </Reveal>
+            </li>
+          ))}
+        </ul>
+      </Section>
 
       {/* Insurance and lending */}
       <Section tone="white">

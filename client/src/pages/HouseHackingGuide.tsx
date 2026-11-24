@@ -1,4 +1,5 @@
-import { BookOpen, Check, Download } from "lucide-react";
+import { BookOpen, Calculator, Check, Download } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { CtaBand, PageHero, Reveal, Section, SectionHeading, SiteLayout } from "@/components/site";
 import { useRouteSeo } from "@/hooks/useSeo";
@@ -120,6 +121,12 @@ export default function HouseHackingGuide() {
                 <BookOpen />
                 Read online
               </a>
+            </Button>
+            <Button asChild variant="outline-light" size="lg">
+              <Link href="/house-hack-calculator">
+                <Calculator />
+                Run your numbers
+              </Link>
             </Button>
           </>
         }
