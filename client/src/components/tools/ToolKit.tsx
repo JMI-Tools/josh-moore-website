@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Link } from "wouter";
-import { ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight, Check } from "lucide-react";
 import { CtaBand, PageHero, Reveal, Section, SectionHeading, SiteLayout } from "@/components/site";
 import { useRouteSeo, type RoutePath } from "@/hooks/useSeo";
 import { cn } from "@/lib/utils";
@@ -377,11 +377,33 @@ export function ToolPage({
 }) {
   useRouteSeo(path);
   useScrollTopOnOpen();
+  const tool = TOOLS.find((t) => t.path === path);
   return (
     <SiteLayout className="pb-20 lg:pb-0">
-      <PageHero tone="navy" eyebrow="Free tool" title={title} lede={lede} />
+      <PageHero
+        tone="navy"
+        eyebrow="Free tool"
+        title={title}
+        lede={lede}
+        actions={
+          <>
+            <a
+              href="#calculator"
+              className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-white px-8 text-base font-semibold text-navy transition-all hover:bg-paper"
+            >
+              Run the numbers
+              <ArrowDown className="size-4" />
+            </a>
+            <span className="flex items-center gap-2 text-sm text-white/70">
+              <Check className="size-4 text-brand-100" strokeWidth={3} />
+              Free. No sign-up. Nothing you type is saved.
+            </span>
+          </>
+        }
+        aside={tool ? <ToolPreview tool={tool} /> : undefined}
+      />
 
-      <Section tone="paper" className="dots-paper">
+      <Section tone="paper" className="dots-paper scroll-mt-16" id="calculator">
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-8">
           <div className="space-y-6">{inputs}</div>
           <div id="results" className="scroll-mt-24 space-y-6 lg:sticky lg:top-24">
@@ -433,6 +455,38 @@ export function ToolPage({
         </a>
       </div>
     </SiteLayout>
+  );
+}
+
+/** The hero's side card: what this tool gives you, at a glance. Desktop only. */
+function ToolPreview({ tool }: { tool: (typeof TOOLS)[number] }) {
+  const Icon = tool.icon;
+  return (
+    <div className="mx-auto hidden w-full max-w-[24rem] lg:block">
+      <div className="overflow-hidden rounded-[2rem] bg-white text-navy shadow-lift">
+        <div className="p-8">
+          <span className="flex size-14 items-center justify-center rounded-2xl bg-navy text-white">
+            <Icon className="size-7" strokeWidth={1.75} />
+          </span>
+          <p className="mt-6 font-display text-3xl leading-tight font-bold tracking-tight">{tool.title}</p>
+          <ul className="mt-6 space-y-3">
+            {tool.points.map((point) => (
+              <li key={point} className="flex items-start gap-3 text-[15px] leading-snug text-ink">
+                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+                  <Check className="size-3.5" strokeWidth={3} />
+                </span>
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="border-t border-line bg-paper px-8 py-3.5">
+          <p className="text-center text-xs font-semibold tracking-[0.14em] text-brand-600 uppercase">
+            Free tool by Josh Moore
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
